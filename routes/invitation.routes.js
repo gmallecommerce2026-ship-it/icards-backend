@@ -17,7 +17,6 @@ const wishController = require('../controllers/wish.controller');
 router.get('/slug/:slug', param('slug').trim().notEmpty(), invitationController.getPublicInvitationBySlug);
 router.get('/public/:id', param('id').isMongoId(), invitationController.getPublicInvitationById);
 router.put('/:invitationId/guests/:guestId/rsvp', param('invitationId').isMongoId(), param('guestId').isMongoId(), invitationController.submitRsvp);
-router.post('/:id/wishes', param('id').isMongoId(), validateWish, invitationController.addWish); // Khách gửi lời chúc
 
 // === CÁC ROUTE YÊU CẦU ĐĂNG NHẬP ===
 router.use(protect);
@@ -36,19 +35,6 @@ const invitationUpload = upload.fields([
     { name: 'loveStoryImages', maxCount: 20 },
 ]);
 
-// --- Lời chúc (Quản lý) ---
-// 1. Lấy danh sách lời chúc cho Admin
-router.get('/:id/wishes', 
-    param('id').isMongoId(), 
-    wishController.getAdminWishes
-); 
-
-// 2. Cập nhật trạng thái (Ẩn/hiện) lời chúc
-router.put('/:id/wishes/:wishId', 
-    param('id').isMongoId(), 
-    param('wishId').isMongoId(), 
-    wishController.updateWishStatus
-);
 
 // 3. Xóa lời chúc
 router.delete('/:id/wishes/:wishId', 
