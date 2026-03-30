@@ -27,6 +27,8 @@ const r2 = new S3Client({
     secretAccessKey: secretAccessKey,
   },
   
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
   // =================== START FIX ===================
   /**
    * Thêm dòng này để buộc SDK sử dụng kiểu "path-style"
