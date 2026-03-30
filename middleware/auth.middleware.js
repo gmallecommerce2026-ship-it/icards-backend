@@ -4,7 +4,7 @@ const User = require('../models/user.model');
 
 const protect = async (req, res, next) => {
   let token;
-
+  console.log("👉 ĐÃ VÀO MIDDLEWARE PROTECT");
   // 1. Đọc token từ httpOnly cookie
   if (req.cookies && req.cookies.token) {
     token = req.cookies.token;
