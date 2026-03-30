@@ -20,21 +20,19 @@ if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
 const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
 
 const r2 = new S3Client({
-  region: 'auto',
+  // Thay đổi 'auto' thành 'us-east-1' để tránh lỗi Signature AWS4
+  region: 'us-east-1', 
   endpoint: endpoint,
   credentials: {
     accessKeyId: accessKeyId,
     secretAccessKey: secretAccessKey,
   },
   
-  // Vẫn giữ forcePathStyle vì Cloudflare R2 hoạt động ổn định nhất với nó
   forcePathStyle: true,
 
-  // =================== START FIX ===================
-  // 2. Tắt tính toán Checksum tự động của AWS SDK v3 bản mới
+  // Các fix cho SDK v3 đã có sẵn của bạn
   requestChecksumCalculation: "WHEN_REQUIRED",
   responseChecksumValidation: "WHEN_REQUIRED",
-  // =================== END FIX ===================
 
   requestHandler: new NodeHttpHandler({
     requestTimeout: 30000,
