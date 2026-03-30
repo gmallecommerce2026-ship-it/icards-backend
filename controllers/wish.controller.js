@@ -61,6 +61,7 @@ const getPublicWishes = async (req, res, next) => {
 // 3. Lấy TẤT CẢ lời chúc để quản lý (bao gồm cả ẩn/hiện)
 const getAdminWishes = async (req, res, next) => {
     try {
+        console.log("=== THÔNG TIN PARAMS ===", req.params);
         const { id: invitationId } = req.params;
 
         const wishes = await Wish.find({ invitation: invitationId }).sort('-createdAt');
