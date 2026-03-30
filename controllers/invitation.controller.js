@@ -648,6 +648,44 @@ const deleteWish = async (req, res, next) => {
         next(error);
     }
 };
+const getWishes = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+        const invitationId = req.params.id;
+
+        const invitation = await invitationService.getInvitationByIdAndUser(invitationId, userId);
+        if (!invitation) {
+            return res.status(404).json({ message: 'Không tìm thấy thiệp hoặc bạn không có quyền.' });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            data: invitation.wishes || []
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const removeWish = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+        const { id: invitationId, wishId } = req.params;
+        
+        const invitation = await invitationService.getInvitationByIdAndUser(invitationId, userId);
+        if (!invitation) return res.status(404).json({ message: 'Không tìm thấy thiệp.' });
+        
+        const wishIndex = invitation.wishes.findIndex(w => w._id.toString() === wishId);
+        if (wishIndex === -1) return res.status(404).json({ message: 'Không tìm thấy lời chúc.' });
+        
+        invitation.wishes.splice(wishIndex, 1);
+        await invitation.save();
+
+        res.status(204).send();
+    } catch (error) {
+        next(error);
+    }
+};
 module.exports = {
     createInvitation,
     getMyInvitations,
@@ -660,6 +698,7 @@ module.exports = {
     removeGuest,
     getPublicInvitationBySlug,
     addWish,
+    getWishes,
     updateInvitationSettings,
     getGuestGroups,
     addGuestGroup,
@@ -674,5 +713,6 @@ module.exports = {
     getPublicWishes,
     getAdminWishes,
     updateWishStatus,
-    deleteWish
+    deleteWish,
+    removeWish
 };
