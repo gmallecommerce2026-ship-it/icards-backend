@@ -12,7 +12,7 @@ const {
     validateInvitationUpdate, 
 } = require('../utils/validators');
 const { param } = require('express-validator');
-
+const wishController = require('../controllers/wish.controller');
 // === CÁC ROUTE CÔNG KHAI ===
 router.get('/slug/:slug', param('slug').trim().notEmpty(), invitationController.getPublicInvitationBySlug);
 router.get('/public/:id', param('id').isMongoId(), invitationController.getPublicInvitationById);
@@ -37,8 +37,25 @@ const invitationUpload = upload.fields([
 ]);
 
 // --- Lời chúc (Quản lý) ---
-router.get('/:id/wishes', param('id').isMongoId(), invitationController.getWishes); // API LẤY LỜI CHÚC CHO ADMIN
-router.delete('/:id/wishes/:wishId', param('id').isMongoId(), param('wishId').isMongoId(), invitationController.removeWish);
+// 1. Lấy danh sách lời chúc cho Admin
+router.get('/:id/wishes', 
+    param('id').isMongoId(), 
+    wishController.getAdminWishes
+); 
+
+// 2. Cập nhật trạng thái (Ẩn/hiện) lời chúc
+router.put('/:id/wishes/:wishId', 
+    param('id').isMongoId(), 
+    param('wishId').isMongoId(), 
+    wishController.updateWishStatus
+);
+
+// 3. Xóa lời chúc
+router.delete('/:id/wishes/:wishId', 
+    param('id').isMongoId(), 
+    param('wishId').isMongoId(), 
+    wishController.deleteWish
+);
 
 // --- Thiệp mời ---
 router.route('/')
