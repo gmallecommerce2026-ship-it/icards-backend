@@ -20,7 +20,7 @@ router.use('/ai', aiRoutes);
 router.use('/users', userRoutes);
 router.use('/products', productRoutes);
 router.use('/invitations', invitationRoutes);
-router.use('/wish', wishRoutes);
+router.use('/wishes', wishRoutes);
 router.use('/invitation-templates', invitationTemplateRoutes);
 router.use('/design-assets', designAssetRoutes);
 router.use('/pages', pageRoutes);
