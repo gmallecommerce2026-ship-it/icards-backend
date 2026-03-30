@@ -70,6 +70,7 @@ exports.getAdminWishes = async (req, res, next) => {
             data: wishes
         });
     } catch (error) {
+        console.error("🚨 [DEBUG] Lỗi tại getAdminWishes:", error);
         next(error);
     }
 };
