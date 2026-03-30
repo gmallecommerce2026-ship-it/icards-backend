@@ -14,6 +14,8 @@ const fontRoutes = require('./font.routes');
 const pageCategoryRoutes = require('./pageCategory.routes');
 const publicRoutes = require('./public.routes');
 const mapRoutes = require('./map.routes'); 
+const wishRoutes = require('./wish.routes');
+router.use('/wishes', wishRoutes);
 router.use('/auth', authRoutes);
 router.use('/ai', aiRoutes);
 router.use('/users', userRoutes);

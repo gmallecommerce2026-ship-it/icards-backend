@@ -7,7 +7,7 @@ const Invitation = require('../models/invitation.model');
 // ==========================================
 
 // 1. Khách gửi lời chúc mới
-exports.createWish = async (req, res, next) => {
+const createWish = async (req, res, next) => {
     try {
         const { id: invitationId } = req.params;
         const { senderName, content } = req.body;
@@ -36,7 +36,7 @@ exports.createWish = async (req, res, next) => {
 };
 
 // 2. Lấy danh sách lời chúc hiển thị lên thiệp (Chỉ lấy status: 'approved')
-exports.getPublicWishes = async (req, res, next) => {
+const getPublicWishes = async (req, res, next) => {
     try {
         const { id: invitationId } = req.params;
 
@@ -59,8 +59,9 @@ exports.getPublicWishes = async (req, res, next) => {
 // ==========================================
 
 // 3. Lấy TẤT CẢ lời chúc để quản lý (bao gồm cả ẩn/hiện)
-exports.getAdminWishes = async (req, res, next) => {
+const getAdminWishes = async (req, res, next) => {
     try {
+        console.log("=== THÔNG TIN PARAMS ===", req.params);
         const { id: invitationId } = req.params;
 
         const wishes = await Wish.find({ invitation: invitationId }).sort('-createdAt');
@@ -70,12 +71,13 @@ exports.getAdminWishes = async (req, res, next) => {
             data: wishes
         });
     } catch (error) {
+        console.error("🚨 [DEBUG] Lỗi tại getAdminWishes:", error);
         next(error);
     }
 };
 
 // 4. Đổi trạng thái lời chúc (Ẩn/Hiện)
-exports.updateWishStatus = async (req, res, next) => {
+const updateWishStatus = async (req, res, next) => {
     try {
         const { wishId } = req.params;
         const { status } = req.body;
@@ -105,7 +107,7 @@ exports.updateWishStatus = async (req, res, next) => {
 };
 
 // 5. Xóa lời chúc
-exports.deleteWish = async (req, res, next) => {
+const deleteWish = async (req, res, next) => {
     try {
         const { wishId } = req.params;
 
@@ -123,4 +125,12 @@ exports.deleteWish = async (req, res, next) => {
     } catch (error) {
         next(error);
     }
+};
+
+module.exports = {
+    createWish,
+    getPublicWishes,
+    getAdminWishes,
+    updateWishStatus,
+    deleteWish
 };
