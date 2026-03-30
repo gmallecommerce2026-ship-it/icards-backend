@@ -13,40 +13,13 @@ const {
 } = require('../utils/validators');
 const { param } = require('express-validator');
 
-// ==========================================
-// === CÁC ROUTE CÔNG KHAI (KHÔNG CẦN ĐĂNG NHẬP) ===
-// ==========================================
+// === CÁC ROUTE CÔNG KHAI ===
+router.get('/slug/:slug', param('slug').trim().notEmpty(), invitationController.getPublicInvitationBySlug);
+router.get('/public/:id', param('id').isMongoId(), invitationController.getPublicInvitationById);
+router.put('/:invitationId/guests/:guestId/rsvp', param('invitationId').isMongoId(), param('guestId').isMongoId(), invitationController.submitRsvp);
+router.post('/:id/wishes', param('id').isMongoId(), validateWish, invitationController.addWish); // Khách gửi lời chúc
 
-router.get(
-    '/slug/:slug',
-    param('slug').trim().notEmpty().withMessage('Slug là bắt buộc.'),
-    invitationController.getPublicInvitationBySlug
-);
-
-router.get(
-    '/public/:id',
-    param('id').isMongoId().withMessage('ID thiệp mời không hợp lệ.'),
-    invitationController.getPublicInvitationById
-);
-
-router.put(
-    '/:invitationId/guests/:guestId/rsvp',
-    param('invitationId').isMongoId().withMessage('ID thiệp mời không hợp lệ.'),
-    param('guestId').isMongoId().withMessage('ID khách mời không hợp lệ.'),
-    invitationController.submitRsvp
-);
-
-// Khách gửi lời chúc mới
-router.post(
-    '/:id/wishes',
-    param('id').isMongoId().withMessage('ID thiệp mời không hợp lệ.'),
-    validateWish,
-    invitationController.addWish
-);
-
-// ==========================================
-// === CÁC ROUTE BẢO VỆ (YÊU CẦU ĐĂNG NHẬP) ===
-// ==========================================
+// === CÁC ROUTE YÊU CẦU ĐĂNG NHẬP ===
 router.use(protect);
 
 const invitationUpload = upload.fields([
@@ -63,7 +36,11 @@ const invitationUpload = upload.fields([
     { name: 'loveStoryImages', maxCount: 20 },
 ]);
 
-// --- Quản lý Thiệp mời ---
+// --- Lời chúc (Quản lý) ---
+router.get('/:id/wishes', param('id').isMongoId(), invitationController.getWishes); // API LẤY LỜI CHÚC CHO ADMIN
+router.delete('/:id/wishes/:wishId', param('id').isMongoId(), param('wishId').isMongoId(), invitationController.removeWish);
+
+// --- Thiệp mời ---
 router.route('/')
     .post(invitationUpload, validateInvitationCreation, invitationController.createInvitation)
     .get(invitationController.getMyInvitations);
@@ -73,51 +50,23 @@ router.route('/:id')
     .put(param('id').isMongoId(), invitationUpload, validateInvitationUpdate, invitationController.updateInvitation)
     .delete(param('id').isMongoId(), invitationController.deleteInvitation);
 
-router.put(
-    '/:id/settings',
-    param('id').isMongoId().withMessage('ID thiệp mời không hợp lệ.'),
-    validateInvitationSettings,
-    invitationController.updateInvitationSettings 
-);
+router.put('/:id/settings', param('id').isMongoId(), validateInvitationSettings, invitationController.updateInvitationSettings);
 
-// --- Quản lý Lời chúc (Cho Admin/Chủ thiệp) ---
-
-// Lấy danh sách lời chúc
-router.get(
-    '/:id/wishes',
-    param('id').isMongoId().withMessage('ID thiệp mời không hợp lệ.'),
-    invitationController.getWishes 
-);
-
-// Xóa một lời chúc
-router.delete(
-    '/:id/wishes/:wishId',
-    param('id').isMongoId().withMessage('ID thiệp mời không hợp lệ.'),
-    param('wishId').isMongoId().withMessage('ID lời chúc không hợp lệ.'),
-    invitationController.removeWish 
-);
-
-
-// --- Quản lý Khách mời ---
-router.route('/:id/guests')
-    .post(param('id').isMongoId(), validateGuest, invitationController.addGuest);
-
+// --- Khách mời ---
+router.route('/:id/guests').post(param('id').isMongoId(), validateGuest, invitationController.addGuest);
 router.post('/:id/guests/bulk', param('id').isMongoId(), invitationController.addGuestsInBulk);
 router.post('/:id/guests/bulk-delete', param('id').isMongoId(), invitationController.bulkDeleteGuests);
 router.post('/:id/guests/bulk-send-email', param('id').isMongoId(), invitationController.bulkSendEmail);
 router.put('/:id/guests/bulk-update', param('id').isMongoId(), invitationController.bulkUpdateGuests);
-
 router.route('/:id/guests/:guestId')
     .put(param('id').isMongoId(), param('guestId').isMongoId(), validateGuest, invitationController.updateGuest)
     .delete(param('id').isMongoId(), param('guestId').isMongoId(), invitationController.removeGuest);
-
 router.put('/:id/guests/:guestId/send-email', param('id').isMongoId(), param('guestId').isMongoId(), invitationController.sendInvitationEmailToGuest);
 
-// --- Quản lý Nhóm khách mời ---
+// --- Nhóm khách mời ---
 router.route('/:id/guest-groups')
     .get(param('id').isMongoId(), invitationController.getGuestGroups)
     .post(param('id').isMongoId(), validateGuestGroup, invitationController.addGuestGroup);
-
 router.route('/:id/guest-groups/:groupId')
     .put(param('id').isMongoId(), param('groupId').isMongoId(), validateGuestGroup, invitationController.updateGuestGroup)
     .delete(param('id').isMongoId(), param('groupId').isMongoId(), invitationController.removeGuestGroup);

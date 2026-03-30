@@ -698,7 +698,6 @@ module.exports = {
     removeGuest,
     getPublicInvitationBySlug,
     addWish,
-    getWishes,
     updateInvitationSettings,
     getGuestGroups,
     addGuestGroup,
@@ -714,5 +713,6 @@ module.exports = {
     getAdminWishes,
     updateWishStatus,
     deleteWish,
-    removeWish
+    getWishes,
+    removeWish,
 };
