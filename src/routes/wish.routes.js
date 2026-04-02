@@ -6,7 +6,7 @@ const { protect } = require('../middleware/auth.middleware');
 // 1. API cho KHÁCH (Public) - Lấy danh sách đã duyệt
 router.get('/admin/:id', protect, wishController.getAdminWishes);
 router.get('/public/:id', wishController.getPublicWishes);
-
+router.post('/public/:id', wishController.createWish);
 // 2. API cho QUẢN TRỊ (Admin) - Lấy tất cả danh sách lời chúc
 
 // 3. Các API thao tác update/delete
