@@ -4,7 +4,54 @@ const mongoose = require('mongoose');
 const sharp = require('sharp');
 const { uploadFileToR2 } = require('../services/r2.service.js'); 
 const _ = require('lodash');
+const getTasks = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+        const invitationId = req.params.id;
 
+        const invitation = await invitationService.getInvitationTasks(invitationId, userId);
+        
+        if (!invitation) {
+            return res.status(404).json({ message: 'Không tìm thấy thiệp hoặc bạn không có quyền.' });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            // Nếu tasks chưa có gì thì trả về mảng rỗng để FE không bị lỗi map()
+            data: invitation.tasks || [] 
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+const updateTasks = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+        const invitationId = req.params.id;
+        const { tasks } = req.body; // Mảng tasks từ FE gửi lên
+
+        if (!Array.isArray(tasks)) {
+            return res.status(400).json({ message: 'Dữ liệu tasks không hợp lệ.' });
+        }
+
+        // Cập nhật trực tiếp mảng tasks của invitation
+        const updatedInvitation = await invitationService.updateInvitationTasks(invitationId, userId, tasks);
+        // Lưu ý: Bạn cần thêm hàm updateInvitationTasks vào invitation.service.js tương ứng
+
+        if (!updatedInvitation) {
+            return res.status(404).json({ message: 'Không tìm thấy thiệp hoặc bạn không có quyền.' });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Kế hoạch cưới đã được cập nhật!',
+            data: updatedInvitation.tasks
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+// Nhớ export updateTasks ở cuối file
 const processInvitationPayload = async (req) => {
     const { slug } = req.body;
     const content = req.body.content ? req.body.content : [];
@@ -554,6 +601,8 @@ const submitRsvp = async (req, res, next) => {
 };
 
 module.exports = {
+    getTasks,
+    updateTasks,
     createInvitation,
     getMyInvitations,
     getInvitation,

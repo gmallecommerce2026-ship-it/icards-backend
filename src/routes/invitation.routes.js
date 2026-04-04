@@ -45,7 +45,15 @@ router.post(
 
 // === Các Route cần xác thực (bảo vệ) ===
 router.use(protect);
-
+router.route('/:id/tasks')
+    .get(
+        param('id').isMongoId().withMessage('ID thiệp mời không hợp lệ.'),
+        invitationController.getTasks
+    )
+    .put(
+        param('id').isMongoId().withMessage('ID thiệp mời không hợp lệ.'),
+        invitationController.updateTasks
+    );
 const invitationUpload = upload.fields([
     { name: 'groomImageUrl', maxCount: 1 },
     { name: 'brideImageUrl', maxCount: 1 },

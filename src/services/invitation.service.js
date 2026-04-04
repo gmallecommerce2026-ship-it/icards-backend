@@ -36,7 +36,16 @@ const getInvitationBySlug = async (slug, guestId = null) => { // Thêm guestId l
     return invitation; // Trả về thiệp gốc nếu không có guestId hoặc không tìm thấy guest
 };
 
+const updateInvitationTasks = async (invitationId, userId, tasks) => {
+    // Sử dụng findOneAndUpdate để tìm thiệp và cập nhật
+    const updatedInvitation = await Invitation.findOneAndUpdate(
+        { _id: invitationId, user: userId }, // Điều kiện: đúng ID thiệp và thuộc sở hữu của user
+        { $set: { tasks: tasks } },          // Hành động: Cập nhật trường tasks
+        { new: true, runValidators: true }   // Tùy chọn: Trả về dữ liệu mới sau khi update và chạy kiểm tra schema
+    );
 
+    return updatedInvitation;
+};
 
 /**
  * Tạo một thiệp mời mới từ template.
@@ -672,7 +681,14 @@ const bulkUpdateGuestsInInvitation = async (invitationId, userId, guestIds, upda
 
     return await invitation.save();
 };
-
+const getInvitationTasks = async (invitationId, userId) => {
+    // Chỉ select trường 'tasks' để tối ưu
+    const invitation = await Invitation.findOne(
+        { _id: invitationId, user: userId },
+        'tasks' 
+    );
+    return invitation;
+};
 /**
  * [MỚI]
  * Gửi email hàng loạt cho nhiều khách mời.
@@ -736,6 +752,7 @@ module.exports = {
     addGuestsInBulkToInvitation, // THÊM EXPORT MỚI
     updateGuestInInvitation,
     removeGuestFromInvitation,
+    updateInvitationTasks,
     addWishToInvitation,
     updateInvitationSettings, // NEW
     addGuestGroupToInvitation, // NEW
@@ -747,5 +764,6 @@ module.exports = {
     updateGuestRsvp,
     bulkDeleteGuestsFromInvitation,
     bulkUpdateGuestsInInvitation,
+    getInvitationTasks,
     bulkSendEmailToGuests,
 };

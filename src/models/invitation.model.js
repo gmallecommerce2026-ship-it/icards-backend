@@ -126,7 +126,13 @@ const imagePositionSchema = new mongoose.Schema({
     y: { type: Number, default: 0 },
     scale: { type: Number, default: 1 }
 }, { _id: false });
-
+const taskSchema = new mongoose.Schema({
+    id: { type: String, required: true }, // FE có thể truyền uuid lên
+    title: { type: String, required: true },
+    isCompleted: { type: Boolean, default: false },
+    dueDate: { type: Date },
+    note: { type: String }
+}, { _id: false });
 const invitationSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.ObjectId, ref: 'User', required: true },
     template: { type: mongoose.Schema.ObjectId, ref: 'InvitationTemplate', required: true },
@@ -261,6 +267,7 @@ const invitationSchema = new mongoose.Schema({
         rsvpSubtitleStyle: { type: textStyleSchema, default: () => ({}) },
     },
     guestGroups: [guestGroupSchema],
+    tasks: [taskSchema],
 }, { timestamps: true, strict: false });
 
 
