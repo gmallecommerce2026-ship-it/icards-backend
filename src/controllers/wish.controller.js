@@ -80,15 +80,16 @@ const getAdminWishes = async (req, res, next) => {
 const updateWishStatus = async (req, res, next) => {
     try {
         const { wishId } = req.params;
-        const { status } = req.body;
+        const { status, reply } = req.body; // <-- Nhận thêm trường reply
 
-        if (!['pending', 'approved', 'hidden'].includes(status)) {
-            return res.status(400).json({ success: false, message: 'Trạng thái không hợp lệ' });
-        }
+        // Tạo object chứa các field cần update
+        const updateData = {};
+        if (status) updateData.status = status;
+        if (reply !== undefined) updateData.reply = reply; // Chấp nhận cả chuỗi rỗng để xóa reply
 
         const wish = await Wish.findByIdAndUpdate(
             wishId,
-            { status },
+            updateData,
             { new: true, runValidators: true }
         );
 
@@ -99,7 +100,7 @@ const updateWishStatus = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data: wish,
-            message: 'Cập nhật trạng thái thành công'
+            message: 'Cập nhật lời chúc thành công'
         });
     } catch (error) {
         next(error);

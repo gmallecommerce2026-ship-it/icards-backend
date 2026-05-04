@@ -17,6 +17,11 @@ const wishSchema = new mongoose.Schema({
         required: [true, 'Vui lòng nhập nội dung lời chúc'],
         trim: true
     },
+    reply: {
+        type: String,
+        trim: true,
+        default: ''
+    },
     status: {
         type: String,
         enum: ['pending', 'approved', 'hidden'],
