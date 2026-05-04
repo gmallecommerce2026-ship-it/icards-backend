@@ -134,12 +134,19 @@ const taskSchema = new mongoose.Schema({
     note: { type: String }
 }, { _id: false });
 
-const budgetItemSchema = new mongoose.Schema({
-    id: { type: String, required: true }, // FE có thể truyền uuid lên
-    name: { type: String, required: true }, // Tên hạng mục (VD: Chụp ảnh cưới)
-    estimatedCost: { type: Number, default: 0 }, // Dự kiến
-    actualCost: { type: Number, default: 0 }, // Thực tế
-    isPaid: { type: Boolean, default: false } // Đã thanh toán chưa
+const budgetDetailItemSchema = new mongoose.Schema({
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    estimatedCost: { type: Number, default: 0 },
+    actualCost: { type: Number, default: 0 },
+    isPaid: { type: Boolean, default: false }
+}, { _id: false });
+
+// 2. Schema cho Nhóm ngân sách (ví dụ: Trang phục, Tiệc cưới...)
+const budgetCategorySchema = new mongoose.Schema({
+    id: { type: String, required: true },
+    title: { type: String, required: true }, // FE dùng 'title' cho tên nhóm
+    items: [budgetDetailItemSchema] // Chứa mảng các mục chi tiết
 }, { _id: false });
 
 const invitationSchema = new mongoose.Schema({
@@ -277,7 +284,7 @@ const invitationSchema = new mongoose.Schema({
     },
     guestGroups: [guestGroupSchema],
     tasks: [taskSchema],
-    budget: [budgetItemSchema],
+    budget: [budgetCategorySchema],
 }, { timestamps: true, strict: false });
 
 const Invitation = mongoose.model('Invitation', invitationSchema);
