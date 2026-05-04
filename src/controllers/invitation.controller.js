@@ -599,7 +599,34 @@ const submitRsvp = async (req, res, next) => {
         next(error);
     }
 };
+const updateBudget = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+        const invitationId = req.params.id;
+        
+        // Frontend đang gửi dữ liệu ngân sách lên (có thể nằm trong req.body.budget)
+        // Hãy đảm bảo FE gửi body chứa { budget: [...] }
+        const { budget } = req.body; 
 
+        if (!Array.isArray(budget)) {
+            return res.status(400).json({ message: 'Dữ liệu ngân sách không hợp lệ.' });
+        }
+
+        const updatedInvitation = await invitationService.updateInvitationBudget(invitationId, userId, budget);
+
+        if (!updatedInvitation) {
+            return res.status(404).json({ message: 'Không tìm thấy thiệp hoặc bạn không có quyền.' });
+        }
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Ngân sách cưới đã được cập nhật!',
+            data: updatedInvitation.budget
+        });
+    } catch (error) {
+        next(error);
+    }
+};
 module.exports = {
     getTasks,
     updateTasks,
@@ -625,4 +652,5 @@ module.exports = {
     bulkDeleteGuests,
     bulkUpdateGuests,
     bulkSendEmail,
+    updateBudget,
 };

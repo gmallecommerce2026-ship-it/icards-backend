@@ -54,6 +54,11 @@ router.route('/:id/tasks')
         param('id').isMongoId().withMessage('ID thiệp mời không hợp lệ.'),
         invitationController.updateTasks
     );
+router.route('/:id/budgetRequest')
+    .put(
+        param('id').isMongoId().withMessage('ID thiệp mời không hợp lệ.'),
+        invitationController.updateBudget
+    );
 const invitationUpload = upload.fields([
     { name: 'groomImageUrl', maxCount: 1 },
     { name: 'brideImageUrl', maxCount: 1 },

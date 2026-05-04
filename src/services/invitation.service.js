@@ -741,6 +741,15 @@ const bulkSendEmailToGuests = async (invitationId, userId, guestIds) => {
 
     return { invitation: updatedInvitation, successCount, failedCount };
 };
+const updateInvitationBudget = async (invitationId, userId, budgetData) => {
+    // Cập nhật trực tiếp mảng budget của thiệp mời
+    const updatedInvitation = await Invitation.findOneAndUpdate(
+        { _id: invitationId, user: userId },
+        { $set: { budget: budgetData } },
+        { new: true, runValidators: true }
+    );
+    return updatedInvitation;
+};
 module.exports = {
     createInvitationFromTemplate,
     getInvitationBySlug,
@@ -766,4 +775,5 @@ module.exports = {
     bulkUpdateGuestsInInvitation,
     getInvitationTasks,
     bulkSendEmailToGuests,
+    updateInvitationBudget,
 };

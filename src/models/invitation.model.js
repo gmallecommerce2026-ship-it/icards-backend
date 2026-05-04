@@ -268,9 +268,16 @@ const invitationSchema = new mongoose.Schema({
     },
     guestGroups: [guestGroupSchema],
     tasks: [taskSchema],
+    budget: [budgetItemSchema],
 }, { timestamps: true, strict: false });
 
-
+const budgetItemSchema = new mongoose.Schema({
+    id: { type: String, required: true }, // FE có thể truyền uuid lên
+    name: { type: String, required: true }, // Tên hạng mục (VD: Chụp ảnh cưới)
+    estimatedCost: { type: Number, default: 0 }, // Dự kiến
+    actualCost: { type: Number, default: 0 }, // Thực tế
+    isPaid: { type: Boolean, default: false } // Đã thanh toán chưa
+}, { _id: false });
 const Invitation = mongoose.model('Invitation', invitationSchema);
 module.exports = Invitation;
 
