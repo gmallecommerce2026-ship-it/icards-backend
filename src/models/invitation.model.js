@@ -133,6 +133,15 @@ const taskSchema = new mongoose.Schema({
     dueDate: { type: Date },
     note: { type: String }
 }, { _id: false });
+
+const budgetItemSchema = new mongoose.Schema({
+    id: { type: String, required: true }, // FE có thể truyền uuid lên
+    name: { type: String, required: true }, // Tên hạng mục (VD: Chụp ảnh cưới)
+    estimatedCost: { type: Number, default: 0 }, // Dự kiến
+    actualCost: { type: Number, default: 0 }, // Thực tế
+    isPaid: { type: Boolean, default: false } // Đã thanh toán chưa
+}, { _id: false });
+
 const invitationSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.ObjectId, ref: 'User', required: true },
     template: { type: mongoose.Schema.ObjectId, ref: 'InvitationTemplate', required: true },
@@ -271,13 +280,6 @@ const invitationSchema = new mongoose.Schema({
     budget: [budgetItemSchema],
 }, { timestamps: true, strict: false });
 
-const budgetItemSchema = new mongoose.Schema({
-    id: { type: String, required: true }, // FE có thể truyền uuid lên
-    name: { type: String, required: true }, // Tên hạng mục (VD: Chụp ảnh cưới)
-    estimatedCost: { type: Number, default: 0 }, // Dự kiến
-    actualCost: { type: Number, default: 0 }, // Thực tế
-    isPaid: { type: Boolean, default: false } // Đã thanh toán chưa
-}, { _id: false });
 const Invitation = mongoose.model('Invitation', invitationSchema);
 module.exports = Invitation;
 
