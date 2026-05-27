@@ -12,8 +12,8 @@ const handleSocialAuthCallback = (req, res) => {
     res.cookie('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax', // 'None' cho production, 'Lax' cho development
-        maxAge: 24 * 60 * 60 * 1000, // 1 ngày
+        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+        maxAge: 24 * 60 * 60 * 1000, 
         path: '/'
     });
     // Chuyển hướng về trang chủ của frontend
@@ -21,10 +21,16 @@ const handleSocialAuthCallback = (req, res) => {
 };
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-router.get('/google/callback', passport.authenticate('google', { failureRedirect: '/sign-in', session: false }), handleSocialAuthCallback);
+router.get('/google/callback', passport.authenticate('google', { 
+    failureRedirect: `${frontendUrl}/sign-in?error=true`, // Sửa ở đây
+    session: false 
+}), handleSocialAuthCallback);
 
 router.get('/facebook', passport.authenticate('facebook', { scope: ['email'] }));
-router.get('/facebook/callback', passport.authenticate('facebook', { failureRedirect: '/sign-in', session: false }), handleSocialAuthCallback);
+router.get('/facebook/callback', passport.authenticate('facebook', { 
+    failureRedirect: `${frontendUrl}/sign-in?error=true`, // Sửa ở đây
+    session: false 
+}), handleSocialAuthCallback);
 
 
 // POST /api/auth/register
