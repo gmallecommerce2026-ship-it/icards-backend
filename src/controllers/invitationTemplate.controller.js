@@ -1,4 +1,4 @@
-const mongoose = require('mongoose'); // <--- THÊM DÒNG NÀY
+const mongoose = require('mongoose'); 
 const InvitationTemplate = require('../models/invitationTemplate.model');
 const invitationTemplateService = require('../services/invitationTemplate.service');
 const APIFeatures = require('../utils/apiFeature');
@@ -7,17 +7,12 @@ const ensureImageShape = (node) => {
     if (Array.isArray(node)) {
         return node.map(item => ensureImageShape(item));
     } else if (typeof node === 'object' && node !== null) {
-        // LOGIC NHẬN DIỆN IMAGE BLOCK:
-        // Bạn cần kiểm tra xem block này có phải là ảnh không.
-        // Thông thường sẽ dựa vào type === 'image' hoặc có trường imgSrc/src.
-        // Dưới đây là ví dụ kiểm tra phổ biến, bạn có thể điều chỉnh theo cấu trúc JSON thực tế của mình.
         const isImageBlock = node.type === 'image' || (node.style && node.src); 
         
         if (isImageBlock && !node.shape) {
-            node.shape = 'square'; // SET MẶC ĐỊNH LÀ SQUARE
+            node.shape = 'square'; 
         }
 
-        // Tiếp tục đệ quy sâu hơn (nếu block này chứa children)
         Object.keys(node).forEach(key => {
             node[key] = ensureImageShape(node[key]);
         });
@@ -73,6 +68,7 @@ const getTemplateFilters = async (req, res, next) => {
 
 
 const seedTemplates = async (req, res, next) => {
+    // ... code giữ nguyên
     const allInvitations = [
         { category: 'Thiệp Mời', type: 'invitations', title: 'Thiệp Mời Floral Vintage', imgSrc: 'https://images.unsplash.com/photo-1552881244-a4f6d4a56a42?q=80&w=800' },
         { category: 'Thiệp Chúc Mừng', type: 'greeting-cards', title: 'Thiệp Sinh Nhật Rực Rỡ', imgSrc: 'https://images.unsplash.com/photo-1589418823849-5f11ff4c3b11?q=80&w=800' },
@@ -106,18 +102,15 @@ const getTemplateById = async (req, res, next) => {
         next(error);
     }
 };
+
 const createTemplate = async (req, res, next) => {
     try {
-        // Parse raw data
         let parsedTemplateData = JSON.parse(req.body.templateData);
-
-        // --- BƯỚC CHUẨN HÓA DỮ LIỆU ---
-        // Đảm bảo shape luôn tồn tại trước khi lưu
         parsedTemplateData = ensureImageShape(parsedTemplateData);
 
         const payload = {
             ...req.body,
-            templateData: parsedTemplateData, // Sử dụng data đã được chuẩn hóa
+            templateData: parsedTemplateData,
             loveGiftsButton: req.body.loveGiftsButton ? JSON.parse(req.body.loveGiftsButton) : null,
             previewData: req.body.previewData ? JSON.parse(req.body.previewData) : null,
         };
@@ -127,34 +120,40 @@ const createTemplate = async (req, res, next) => {
         next(error);
     }
 };
+
+// --- HÀM UPDATE ĐÃ ĐƯỢC CHỈNH SỬA ---
 const updateTemplate = async (req, res, next) => {
     try {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
             return res.status(400).json({ message: 'ID mẫu thiệp không hợp lệ.' });
         }
 
-        if (typeof req.body.templateData !== 'string') {
-            throw new Error('templateData phải là một chuỗi JSON.');
+        // 1. Tạo payload cơ bản từ request body (ví dụ nhận được { isActive: true } hoặc { occasionSectionId: '...' })
+        const updatePayload = { ...req.body };
+
+        // 2. Chỉ thực hiện parse JSON nếu phía Client có gửi trường templateData lên (dành cho Form sửa Full)
+        if (req.body.templateData) {
+            if (typeof req.body.templateData !== 'string') {
+                throw new Error('templateData phải là một chuỗi JSON.');
+            }
+            let parsedTemplateData = JSON.parse(req.body.templateData);
+            parsedTemplateData = ensureImageShape(parsedTemplateData);
+            updatePayload.templateData = parsedTemplateData;
         }
 
-        // Parse raw data
-        let parsedTemplateData = JSON.parse(req.body.templateData);
+        // 3. Tương tự cho các trường JSON khác nếu có gửi lên
+        if (req.body.loveGiftsButton) {
+            updatePayload.loveGiftsButton = JSON.parse(req.body.loveGiftsButton);
+        }
+        if (req.body.previewData) {
+            updatePayload.previewData = JSON.parse(req.body.previewData);
+        }
 
-        // --- BƯỚC CHUẨN HÓA DỮ LIỆU ---
-        // Đảm bảo shape luôn tồn tại trước khi update
-        parsedTemplateData = ensureImageShape(parsedTemplateData);
-
-        const updatePayload = {
-            ...req.body,
-            templateData: parsedTemplateData, // Sử dụng data đã được chuẩn hóa
-            loveGiftsButton: req.body.loveGiftsButton ? JSON.parse(req.body.loveGiftsButton) : null,
-            previewData: req.body.previewData ? JSON.parse(req.body.previewData) : null,
-        };
-
+        // 4. Gọi Service. Lưu ý: req.files có thể là undefined/trống nếu chỉ là cập nhật nhanh
         const updatedTemplate = await invitationTemplateService.updateTemplateById(
             req.params.id,
             updatePayload,
-            req.files
+            req.files || [] 
         );
 
         if (!updatedTemplate) {
@@ -167,26 +166,19 @@ const updateTemplate = async (req, res, next) => {
         next(error);
     }
 };
+
 const fixExistingTemplateShapes = async (req, res, next) => {
     try {
         console.log("Bắt đầu migration shape...");
-        const templates = await InvitationTemplate.find({}); // Lấy tất cả template
+        const templates = await InvitationTemplate.find({}); 
         let count = 0;
 
         for (const template of templates) {
             if (template.templateData) {
-                // Clone ra object mới để xử lý
                 let data = JSON.parse(JSON.stringify(template.templateData));
-                
-                // Chuẩn hóa
                 data = ensureImageShape(data);
-
-                // Gán ngược lại
                 template.templateData = data;
-                
-                // QUAN TRỌNG: Báo cho Mongoose biết trường Mixed đã thay đổi
                 template.markModified('templateData');
-                
                 await template.save();
                 count++;
             }
@@ -201,6 +193,7 @@ const fixExistingTemplateShapes = async (req, res, next) => {
         next(error);
     }
 };
+
 const deleteTemplate = async (req, res, next) => {
     try {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -210,10 +203,10 @@ const deleteTemplate = async (req, res, next) => {
         if (!template) {
             return res.status(404).json({ message: 'Không tìm thấy mẫu thiệp để xóa.' });
         }
-        res.status(204).json(); // 204 No Content
+        res.status(204).json(); 
     } catch (error) {
         next(error);
     }
 };
 
-module.exports = { getInvitationTemplates, getTemplateById, seedTemplates, createTemplate, updateTemplate, deleteTemplate, fixExistingTemplateShapes };
+module.exports = { getInvitationTemplates, getTemplateFilters, getTemplateById, seedTemplates, createTemplate, updateTemplate, deleteTemplate, fixExistingTemplateShapes };
