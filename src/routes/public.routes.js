@@ -8,7 +8,22 @@ const pageCategoryRoutes = require('./pageCategory.routes');
 const fontRoutes = require('./font.routes');
 const invitationTemplateRoutes = require('./invitationTemplate.routes');
 const topicRoutes = require('./topic.routes');
+const templateBlockService = require('../services/templateBlock.service');
+const catchAsync = require('../utils/catchAsync');
 
+// Thêm route này vào cùng với các public routes khác
+router.get('/template-blocks', catchAsync(async (req, res, next) => {
+    // Tái sử dụng lại service đã viết
+    const blocks = await templateBlockService.getAllBlocks();
+    
+    // Chỉ trả về các khối đang được bật (isActive: true)
+    const activeBlocks = blocks.filter(block => block.isActive);
+
+    res.status(200).json({
+        success: true,
+        data: activeBlocks
+    });
+}));
 // Gắn các route cụ thể vào router công khai này
 // - Yêu cầu đến /public/pages sẽ được xử lý bởi pageRoutes
 // - Yêu cầu đến /public/page-categories sẽ được xử lý bởi pageCategoryRoutes
