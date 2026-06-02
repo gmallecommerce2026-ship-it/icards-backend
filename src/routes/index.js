@@ -15,6 +15,7 @@ const pageCategoryRoutes = require('./pageCategory.routes');
 const publicRoutes = require('./public.routes');
 const mapRoutes = require('./map.routes'); 
 const wishRoutes = require('./wish.routes');
+const templateBlockRoutes = require('./templateBlock.routes'); // Import route cho template blocks
 router.use('/wishes', wishRoutes);
 router.use('/auth', authRoutes);
 router.use('/ai', aiRoutes);
@@ -28,5 +29,6 @@ router.use('/master-guests', masterGuestRoutes);
 router.use('/fonts', fontRoutes);
 router.use('/page-categories', pageCategoryRoutes);
 router.use('/public', publicRoutes);
+router.use('/template-blocks', templateBlockRoutes); // Thêm route cho template blocks vào router công khai
 router.use('/maps', mapRoutes);
 module.exports = router;
