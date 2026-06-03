@@ -6,6 +6,37 @@ class TemplateBlockService {
      * Lấy tất cả các khối hiển thị (Đã populate thông tin thiệp mời bên trong)
      * @returns {Promise<Array>} Danh sách các khối đã sắp xếp
      */
+    async getPublicActiveBlocks() {
+        // Gợi ý: Tại đây nên được bọc bởi Redis Cache. (ví dụ: redis.get('public_template_blocks'))
+        
+        return await TemplateBlock.find({ isActive: true })
+            .populate({
+                path: 'templates',
+                select: 'title imgSrc slug isActive', // Chỉ select những trường thật sự cần
+                match: { isActive: true } // Chỉ lấy những mẫu đang hoạt động
+            })
+            .sort({ displayOrder: 1, createdAt: -1 })
+            .lean(); // .lean() để bỏ qua Mongoose document overhead, trả về pure JSON object, giúp query nhanh hơn 3-5 lần.
+    }
+    async getBlockBySlug(slug) {
+        if (!slug) {
+            throw new AppError('Đường dẫn bộ sưu tập không hợp lệ', 400);
+        }
+
+        const block = await TemplateBlock.findOne({ slug, isActive: true })
+            .populate({
+                path: 'templates',
+                select: 'title imgSrc slug category group type isActive description views',
+                match: { isActive: true }
+            })
+            .lean();
+
+        if (!block) {
+            throw new AppError('Không tìm thấy bộ sưu tập này hoặc dữ liệu đã bị ẩn', 404);
+        }
+
+        return block;
+    }
     async getAllBlocks() {
         return await TemplateBlock.find()
             .populate({

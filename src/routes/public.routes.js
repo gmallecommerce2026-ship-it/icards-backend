@@ -10,7 +10,7 @@ const invitationTemplateRoutes = require('./invitationTemplate.routes');
 const topicRoutes = require('./topic.routes');
 const templateBlockService = require('../services/templateBlock.service');
 const catchAsync = require('../utils/catchAsync');
-
+const templateBlockController = require('../controllers/templateBlock.controller');
 // Thêm route này vào cùng với các public routes khác
 router.get('/template-blocks', catchAsync(async (req, res, next) => {
     // Tái sử dụng lại service đã viết
@@ -24,6 +24,10 @@ router.get('/template-blocks', catchAsync(async (req, res, next) => {
         data: activeBlocks
     });
 }));
+router.get('/template-blocks', templateBlockController.getPublicBlocks);
+
+// Route phục vụ trang xem chi tiết toàn bộ thiệp của bộ sưu tập đó khi click vào
+router.get('/template-blocks/slug/:slug', templateBlockController.getBlockBySlug);
 // Gắn các route cụ thể vào router công khai này
 // - Yêu cầu đến /public/pages sẽ được xử lý bởi pageRoutes
 // - Yêu cầu đến /public/page-categories sẽ được xử lý bởi pageCategoryRoutes

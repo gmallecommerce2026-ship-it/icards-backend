@@ -10,7 +10,32 @@ exports.getBlocks = catchAsync(async (req, res, next) => {
         data: blocks
     });
 });
+/**
+ * API lấy danh sách khối hiển thị ngoài Trang chủ (Giao diện Client)
+ * GET /api/v1/public/template-blocks
+ */
+exports.getPublicBlocks = catchAsync(async (req, res, next) => {
+    const blocks = await templateBlockService.getPublicActiveBlocks();
+    
+    res.status(200).json({
+        success: true,
+        results: blocks.length,
+        data: blocks
+    });
+});
 
+/**
+ * API lấy chi tiết một khối thiệp theo Slug để hiển thị danh sách thiệp bên trong bộ sưu tập
+ * GET /api/v1/public/template-blocks/slug/:slug
+ */
+exports.getBlockBySlug = catchAsync(async (req, res, next) => {
+    const block = await templateBlockService.getBlockBySlug(req.params.slug);
+    
+    res.status(200).json({
+        success: true,
+        data: block
+    });
+});
 exports.getBlockById = catchAsync(async (req, res, next) => {
     const block = await templateBlockService.getBlockById(req.params.id);
     res.status(200).json({
