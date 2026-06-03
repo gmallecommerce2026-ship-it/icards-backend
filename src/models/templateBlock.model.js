@@ -8,7 +8,7 @@ const templateBlockSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   displayOrder: { type: Number, default: 0 },
   // Mảng chứa các ID của Template mà Admin chọn
-  templates: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Template' }] 
+  templates: [{ type: mongoose.Schema.Types.ObjectId, ref: 'InvitationTemplate' }] 
 }, { timestamps: true });
 
 module.exports = mongoose.model('TemplateBlock', templateBlockSchema);
