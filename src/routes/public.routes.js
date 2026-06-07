@@ -1,6 +1,8 @@
 // BE/routes/public.routes.js (Tệp mới)
 const express = require('express');
-const router = express.Router();
+const fs = require('fs');
+const path = require('path');
+const Invitation = require('../models/invitation.model');
 
 // Import các tệp route dành cho người dùng công khai
 const pageRoutes = require('./page.routes');
@@ -37,6 +39,76 @@ router.use('/page-categories', pageCategoryRoutes);
 router.use('/fonts', fontRoutes);
 router.use('/invitation-templates', invitationTemplateRoutes);
 router.use('/topics', topicRoutes);
+router.get('/seo-invitation/:slug', catchAsync(async (req, res, next) => {
+    const { slug } = req.params;
 
+    // 1. Tìm thiệp theo slug 
+    // MỚI: Thêm select('imgSrc content') để lấy chính xác dữ liệu cấu trúc Canvas
+    const invitation = await Invitation.findOne({ slug })
+        .select('imgSrc content settings.title settings.description settings.heroImages')
+        .lean();
+
+    // 2. Trỏ đường dẫn tuyệt đối đến file index.html tĩnh của ReactJS
+    const indexPath = path.resolve(__dirname, '../../../frontend/build/index.html');
+
+    // Nếu không tìm thấy thiệp, trả file mặc định
+    if (!invitation) {
+        if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
+        return res.status(404).send('Không tìm thấy giao diện nền tảng.');
+    }
+
+    fs.readFile(indexPath, 'utf8', (err, htmlData) => {
+        if (err) {
+            console.error('Lỗi khi đọc file index.html:', err);
+            return res.status(500).send('Internal Server Error');
+        }
+
+        // 3. Chuẩn bị Data & Dọn dẹp Text
+        const cleanText = (text) => {
+            if (!text) return '';
+            return text
+                .replace(/{LờiXưngHô}/g, 'Bạn')
+                .replace(/{TênKháchMời}/g, '')
+                .replace(/<[^>]*>?/gm, '') // Xóa thẻ HTML (ví dụ: <p>Mô tả...</p>) nếu có
+                .replace(/\s+/g, ' ')
+                .replace(' !', '!')
+                .trim();
+        };
+
+        const title = cleanText(invitation.settings?.title) || 'Thiệp mời sự kiện - iCards';
+        
+        // Data description của bạn đang là "<p>Mô tả chi tiết...</p>", regex bóc thẻ HTML ở trên sẽ xử lý sạch sẽ
+        const description = cleanText(invitation.description || invitation.settings?.description) || 'Bạn nhận được một lời mời trân trọng!';
+        
+        // 4. LẤY ẢNH BÌA MẶT TRƯỚC (THUMBNAIL) TỪ CANVAS DATA
+        // Tìm backgroundImage của trang đầu tiên (Trang 1) trong mảng content
+        let firstPageBackgroundImage = null;
+        if (invitation.content && invitation.content.length > 0) {
+            firstPageBackgroundImage = invitation.content[0].backgroundImage;
+        }
+
+        // Thứ tự ưu tiên lấy ảnh hiển thị cho Zalo:
+        // Ưu tiên 1: Lấy imgSrc (ảnh R2 như bạn gửi trong payload)
+        // Ưu tiên 2: Lấy backgroundImage của Page 1 trong Canvas
+        // Ưu tiên 3: Lấy ảnh cô dâu/chú rể (heroImages.main)
+        // Ưu tiên 4: Fallback về ảnh mặc định của iCards
+        const coverImage = invitation.imgSrc 
+            || firstPageBackgroundImage
+            || invitation.settings?.heroImages?.main 
+            || 'https://icards.com.vn/default-share-thumbnail.jpg';
+
+        const shareUrl = `https://icards.com.vn/invitation/${slug}`;
+
+        // 5. Bơm (Inject) dữ liệu vào thẻ Meta
+        const injectedHtml = htmlData
+            .replace(/__OG_TITLE__/g, title)
+            .replace(/__OG_DESCRIPTION__/g, description)
+            .replace(/__OG_IMAGE__/g, coverImage)
+            .replace(/__OG_URL__/g, shareUrl);
+
+        // 6. Trả file HTML hoàn thiện cho Zalo
+        res.send(injectedHtml);
+    });
+}));
 
 module.exports = router;
