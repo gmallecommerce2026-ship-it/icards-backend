@@ -1,5 +1,6 @@
 // BE/routes/public.routes.js (Tệp mới)
 const express = require('express');
+const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const Invitation = require('../models/invitation.model');
@@ -42,7 +43,7 @@ router.use('/topics', topicRoutes);
 // Thêm route này vào BE/routes/public.routes.js
 router.get('/events/:eventId', catchAsync(async (req, res, next) => {
     const { eventId } = req.params;
-    
+
     
     // 1. Phân loại Bot và User thật (Bot Detection)
     const userAgent = req.headers['user-agent'] || '';
