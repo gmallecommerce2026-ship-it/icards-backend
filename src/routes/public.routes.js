@@ -43,6 +43,7 @@ router.use('/topics', topicRoutes);
 router.get('/events/:eventId', catchAsync(async (req, res, next) => {
     const { eventId } = req.params;
     
+    
     // 1. Phân loại Bot và User thật (Bot Detection)
     const userAgent = req.headers['user-agent'] || '';
     const isBot = /zalo|facebookexternalhit|twitterbot|googlebot|crawler/i.test(userAgent);
