@@ -73,20 +73,18 @@ app.get('/events/:id', async (req, res) => {
 
     // 4. Đọc và thay thế nội dung
     fs.readFile(indexPath, 'utf8', (err, htmlData) => {
-      if (err) {
-        console.error('Lỗi đọc index.html:', err);
-        return res.status(500).send('Server Error');
-      }
+      if (err) return res.status(500).send('Server Error');
 
-      // Thay thế các Placeholder bằng dữ liệu thật
-      // Sử dụng replaceAll để thay thế tất cả vị trí xuất hiện
+      // PHẢI THAY THẾ CHO CẢ META VÀ OG THÌ ZALO VÀ FB MỚI ĐỌC ĐƯỢC
       const injectedHtml = htmlData
         .replaceAll('__META_TITLE__', title)
-        .replaceAll('__OG_TITLE__', title) // Thêm dòng này cho Zalo
+        .replaceAll('__OG_TITLE__', title)
         .replaceAll('__META_DESCRIPTION__', description)
-        .replaceAll('__OG_DESCRIPTION__', description) // Thêm dòng này cho Zalo
-        .replaceAll('__OG_IMAGE__', image) // Đổi từ __META_IMAGE__ sang __OG_IMAGE__
-        .replaceAll('__OG_URL__', url);    // Đổi từ __META_URL__ sang __OG_URL__
+        .replaceAll('__OG_DESCRIPTION__', description)
+        .replaceAll('__META_IMAGE__', image)
+        .replaceAll('__OG_IMAGE__', image)
+        .replaceAll('__META_URL__', url)
+        .replaceAll('__OG_URL__', url);
 
       console.log(`SEO Success: ${id} - Image: ${image}`);
       res.send(injectedHtml);
@@ -103,12 +101,21 @@ const serveDefaultHtml = (res) => {
   fs.readFile(indexPath, 'utf8', (err, htmlData) => {
     if (err) return res.status(500).send("Error loading page");
     
-    // Nếu lỗi, thay placeholder bằng thông tin mặc định của web
+    const defaultTitle = 'iCards.com.vn';
+    const defaultDesc = 'Nền tảng tạo thiệp mời online.';
+    const defaultImg = 'https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public';
+    const defaultUrl = 'https://icards.com.vn';
+
+    // BẮT BUỘC PHẢI THÊM REPLACE CHO OG Ở HÀM NÀY ĐỂ KHI LỖI ZALO KHÔNG BỊ HIỆN __OG_TITLE__
     const defaultHtml = htmlData
-      .replaceAll('__META_TITLE__', 'iCards.com.vn')
-      .replaceAll('__META_DESCRIPTION__', 'Nền tảng tạo thiệp mời online.')
-      .replaceAll('__META_IMAGE__', 'https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public')
-      .replaceAll('__META_URL__', 'https://icards.com.vn');
+        .replaceAll('__META_TITLE__', defaultTitle)
+        .replaceAll('__OG_TITLE__', defaultTitle)
+        .replaceAll('__META_DESCRIPTION__', defaultDesc)
+        .replaceAll('__OG_DESCRIPTION__', defaultDesc)
+        .replaceAll('__META_IMAGE__', defaultImg)
+        .replaceAll('__OG_IMAGE__', defaultImg)
+        .replaceAll('__META_URL__', defaultUrl)
+        .replaceAll('__OG_URL__', defaultUrl);
       
     res.send(defaultHtml);
   });
