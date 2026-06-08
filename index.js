@@ -51,6 +51,9 @@ const indexPath = path.resolve(__dirname, 'public', 'index.html');
 // LOGIC SEO: REPLACE PLACEHOLDERS
 // ============================================================
 app.get('/events/:id', async (req, res) => {
+  // Thêm 2 dòng này để debug
+  console.log('====== HIT EVENT ROUTE ======', req.params.id);
+  console.log('User Agent:', req.headers['user-agent']);
   try {
     const { id } = req.params;
 
