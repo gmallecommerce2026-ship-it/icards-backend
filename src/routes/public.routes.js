@@ -68,18 +68,12 @@ router.get('/events/:eventId', catchAsync(async (req, res, next) => {
     }
 
     fs.readFile(indexPath, 'utf8', (err, htmlData) => {
-        if (err) return res.status(500).send('Lỗi máy chủ');
+        console.log('fs.readFile callback fired, err:', err ? err.message : 'none');
+        if (err) return res.status(500).send('Server Error');
 
-        const cleanText = (text) => text ? text.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim() : '';
+        let coverImage = 'https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public';
 
-        const title = cleanText(invitation.settings?.title) || 'Thiệp mời sự kiện - iCards';
-        const description = cleanText(invitation.settings?.description) || 'Bạn nhận được một lời mời trân trọng!';
-        
-        // 4. LẤY ẢNH BÌA MẶT TRƯỚC (Trang đầu tiên trong editor)
-        let coverImage = 'https://icards.com.vn/default-share-thumbnail.jpg'; // Ảnh dự phòng
-        
         if (invitation.content && invitation.content.length > 0 && invitation.content[0].backgroundImage) {
-            // Lấy chính xác ảnh background của trang số 1 trong mảng content Canvas
             coverImage = invitation.content[0].backgroundImage;
         } else if (invitation.imgSrc) {
             coverImage = invitation.imgSrc;
@@ -87,19 +81,30 @@ router.get('/events/:eventId', catchAsync(async (req, res, next) => {
             coverImage = invitation.settings.heroImages.main;
         }
 
-        const shareUrl = `https://icards.com.vn/events/${eventId}`;
+        console.log('coverImage:', coverImage);
+        console.log('title:', invitation.settings?.title);
 
-        // 5. Ghi đè vào các placeholder của React index.html
+        const title = (invitation.settings?.title || 'Thiệp Mời Online - iCards.com.vn')
+            .replace(/\{[^}]+\}/g, '').replace(/<[^>]*>/g, '').trim();
+        const description = (invitation.settings?.description || 'Trân trọng kính mời bạn đến tham dự.')
+            .replace(/\{[^}]+\}/g, '').replace(/<[^>]*>/g, '').trim();
+        const url = `https://icards.com.vn/events/${id}`;
+
         const injectedHtml = htmlData
             .replace(/__META_TITLE__/g, title)
             .replace(/__OG_TITLE__/g, title)
+            .replace(/__META_DESCRIPTION__/g, description)
             .replace(/__OG_DESCRIPTION__/g, description)
-            .replace(/__META_DESCRIPTION__/g, description) 
+            .replace(/__META_IMAGE__/g, coverImage)
             .replace(/__OG_IMAGE__/g, coverImage)
-            .replace(/__OG_URL__/g, shareUrl);
+            .replace(/__META_URL__/g, url)
+            .replace(/__OG_URL__/g, url);
 
+        console.log('Sending injected HTML, length:', injectedHtml.length);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache');
         res.send(injectedHtml);
-    });
+        });
 }));
 router.get('/seo-invitation/:slug', catchAsync(async (req, res, next) => {
     const { slug } = req.params;
