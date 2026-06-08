@@ -54,24 +54,64 @@ const indexPath = path.resolve('/home/icards/icards/build', 'index.html');
 app.get('/events/:id', async (req, res) => {
   console.log('====== HIT EVENT ROUTE ======', req.params.id);
   console.log('User Agent:', req.headers['user-agent']);
-  console.log('indexPath:', indexPath);
-  console.log('indexPath exists:', fs.existsSync(indexPath));
 
   try {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      console.log('Invalid ID');
       return serveDefaultHtml(res);
     }
 
-    console.log('Before DB query');
     const invitation = await Invitation.findById(id)
       .select('imgSrc content settings.title settings.description settings.heroImages')
       .lean();
-    console.log('After DB query, found:', !!invitation);
 
-    // ... giữ nguyên phần còn lại
+    if (!invitation) {
+      return serveDefaultHtml(res);
+    }
+
+    // Lấy ảnh bìa mặt trước
+    let coverImage = 'https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public';
+    if (invitation.content && invitation.content.length > 0 && invitation.content[0].backgroundImage) {
+      coverImage = invitation.content[0].backgroundImage;
+    } else if (invitation.imgSrc) {
+      coverImage = invitation.imgSrc;
+    } else if (invitation.settings?.heroImages?.main) {
+      coverImage = invitation.settings.heroImages.main;
+    }
+
+    const cleanText = (text) => {
+      if (!text) return '';
+      return text.replace(/\{[^}]+\}/g, '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    };
+
+    const title = cleanText(invitation.settings?.title) || 'Thiệp Mời Online - iCards.com.vn';
+    const description = cleanText(invitation.settings?.description) || 'Trân trọng kính mời bạn đến tham dự sự kiện đặc biệt này.';
+    const url = `https://icards.com.vn/events/${id}`;
+
+    console.log('coverImage:', coverImage);
+    console.log('title:', title);
+
+    fs.readFile(indexPath, 'utf8', (err, htmlData) => {
+      console.log('fs.readFile callback, err:', err ? err.message : 'none');
+      if (err) return res.status(500).send('Server Error');
+
+      const injectedHtml = htmlData
+        .replace(/__META_TITLE__/g, title)
+        .replace(/__OG_TITLE__/g, title)
+        .replace(/__META_DESCRIPTION__/g, description)
+        .replace(/__OG_DESCRIPTION__/g, description)
+        .replace(/__META_IMAGE__/g, coverImage)
+        .replace(/__OG_IMAGE__/g, coverImage)
+        .replace(/__META_URL__/g, url)
+        .replace(/__OG_URL__/g, url);
+
+      console.log('Sending HTML, length:', injectedHtml.length);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-store');
+      res.send(injectedHtml);
+    });
+
   } catch (error) {
     console.error('SEO Route Error:', error.stack);
     serveDefaultHtml(res);
