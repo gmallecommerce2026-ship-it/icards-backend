@@ -39,6 +39,55 @@ router.use('/page-categories', pageCategoryRoutes);
 router.use('/fonts', fontRoutes);
 router.use('/invitation-templates', invitationTemplateRoutes);
 router.use('/topics', topicRoutes);
+// Thêm route này vào BE/routes/public.routes.js
+router.get('/seo-events/:eventId', catchAsync(async (req, res, next) => {
+    const { eventId } = req.params;
+    
+    // Lấy query param guestId (nếu bạn cần xử lý gì đó riêng cho guest, nếu không thì bỏ qua)
+    // const { guestId } = req.query; 
+
+    // 1. Tìm thiệp bằng ID thay vì slug
+    // Lưu ý: Đảm bảo model của bạn truy vấn đúng trường (_id hoặc eventId)
+    const invitation = await Invitation.findById(eventId)
+        .select('imgSrc content settings.title settings.description settings.heroImages')
+        .lean();
+
+    const indexPath = path.resolve(__dirname, '../../../frontend/build/index.html');
+
+    if (!invitation) {
+        if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
+        return res.status(404).send('Không tìm thấy sự kiện.');
+    }
+
+    fs.readFile(indexPath, 'utf8', (err, htmlData) => {
+        if (err) return res.status(500).send('Lỗi máy chủ');
+
+        const cleanText = (text) => text ? text.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim() : '';
+
+        const title = cleanText(invitation.settings?.title) || 'Thiệp mời sự kiện - iCards';
+        const description = cleanText(invitation.description || invitation.settings?.description) || 'Bạn nhận được một lời mời trân trọng!';
+        
+        let firstPageBackgroundImage = invitation.content?.length > 0 ? invitation.content[0].backgroundImage : null;
+
+        const coverImage = invitation.imgSrc 
+            || firstPageBackgroundImage
+            || invitation.settings?.heroImages?.main 
+            || 'https://icards.com.vn/default-share-thumbnail.jpg';
+
+        // Lưu ý giữ nguyên full link (kể cả có guestId hay không)
+        const shareUrl = `https://icards.com.vn/events/${eventId}`;
+
+        // Bơm dữ liệu
+        const injectedHtml = htmlData
+            .replace(/__OG_TITLE__/g, title)
+            .replace(/__OG_DESCRIPTION__/g, description) // Sửa đoạn này nếu HTML gốc của bạn là __META_DESCRIPTION__
+            .replace(/__META_DESCRIPTION__/g, description) // Thêm dòng này cho chắc ăn, đề phòng HTML thẻ <meta name="description">
+            .replace(/__OG_IMAGE__/g, coverImage)
+            .replace(/__OG_URL__/g, shareUrl);
+
+        res.send(injectedHtml);
+    });
+}));
 router.get('/seo-invitation/:slug', catchAsync(async (req, res, next) => {
     const { slug } = req.params;
 
@@ -110,5 +159,7 @@ router.get('/seo-invitation/:slug', catchAsync(async (req, res, next) => {
         res.send(injectedHtml);
     });
 }));
+
+
 
 module.exports = router;
