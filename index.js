@@ -51,53 +51,32 @@ const indexPath = path.resolve(__dirname, 'public', 'index.html');
 // LOGIC SEO: REPLACE PLACEHOLDERS
 // ============================================================
 app.get('/events/:id', async (req, res) => {
-  // Thêm 2 dòng này để debug
   console.log('====== HIT EVENT ROUTE ======', req.params.id);
   console.log('User Agent:', req.headers['user-agent']);
+  console.log('indexPath:', indexPath);
+  console.log('indexPath exists:', fs.existsSync(indexPath));
+
   try {
     const { id } = req.params;
 
-    // 1. Kiểm tra ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      console.log('SEO: Invalid ID, serving default');
+      console.log('Invalid ID');
       return serveDefaultHtml(res);
     }
 
-    // 2. Lấy dữ liệu thiệp
-    const invitation = await Invitation.findById(id);
-    
-    // 3. Chuẩn bị dữ liệu Meta
-    const title = invitation?.settings?.title || 'Thiệp Mời Online - iCards.com.vn';
-    const description = invitation?.settings?.description || 'Trân trọng kính mời bạn đến tham dự sự kiện đặc biệt này.';
-    const image = invitation?.imgSrc 
-                  || invitation?.settings?.heroImages?.main 
-                  || 'https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public';
-    const url = `https://icards.com.vn/events/${id}`;
+    console.log('Before DB query');
+    const invitation = await Invitation.findById(id)
+      .select('imgSrc content settings.title settings.description settings.heroImages')
+      .lean();
+    console.log('After DB query, found:', !!invitation);
 
-    // 4. Đọc và thay thế nội dung
-    fs.readFile(indexPath, 'utf8', (err, htmlData) => {
-      if (err) return res.status(500).send('Server Error');
-
-      // PHẢI THAY THẾ CHO CẢ META VÀ OG THÌ ZALO VÀ FB MỚI ĐỌC ĐƯỢC
-      const injectedHtml = htmlData
-        .replaceAll('__META_TITLE__', title)
-        .replaceAll('__OG_TITLE__', title)
-        .replaceAll('__META_DESCRIPTION__', description)
-        .replaceAll('__OG_DESCRIPTION__', description)
-        .replaceAll('__META_IMAGE__', image)
-        .replaceAll('__OG_IMAGE__', image)
-        .replaceAll('__META_URL__', url)
-        .replaceAll('__OG_URL__', url);
-
-      console.log(`SEO Success: ${id} - Image: ${image}`);
-      res.send(injectedHtml);
-    });
-
+    // ... giữ nguyên phần còn lại
   } catch (error) {
-    console.error("SEO Error:", error);
+    console.error('SEO Route Error:', error.stack);
     serveDefaultHtml(res);
   }
 });
+
 
 // Hàm phụ trợ để trả về HTML gốc (chưa thay thế hoặc thay bằng default)
 const serveDefaultHtml = (res) => {
