@@ -51,6 +51,37 @@ const indexPath = path.resolve('/home/icards/icards/build', 'index.html');
 // ============================================================
 // LOGIC SEO: REPLACE PLACEHOLDERS
 // ============================================================
+app.get('/og-image/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).send('Not found');
+    }
+
+    const invitation = await Invitation.findById(id)
+      .select('content imgSrc')
+      .lean();
+
+    if (!invitation || !invitation.content || invitation.content.length === 0) {
+      return res.redirect('https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public');
+    }
+
+    const firstPage = invitation.content[0];
+    const originalWidth = firstPage.canvasWidth || 567;
+
+    const imageBuffer = await renderFirstPageToBuffer(firstPage, originalWidth);
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // cache 1 giờ
+    res.send(imageBuffer);
+
+  } catch (error) {
+    console.error('OG Image render error:', error);
+    res.redirect('https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public');
+  }
+});
+
 app.get('/events/:id', async (req, res) => {
   console.log('====== HIT EVENT ROUTE ======', req.params.id);
   console.log('User Agent:', req.headers['user-agent']);
@@ -71,14 +102,7 @@ app.get('/events/:id', async (req, res) => {
     }
 
     // Lấy ảnh bìa mặt trước
-    let coverImage = 'https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public';
-    if (invitation.content && invitation.content.length > 0 && invitation.content[0].backgroundImage) {
-      coverImage = invitation.content[0].backgroundImage;
-    } else if (invitation.imgSrc) {
-      coverImage = invitation.imgSrc;
-    } else if (invitation.settings?.heroImages?.main) {
-      coverImage = invitation.settings.heroImages.main;
-    }
+    const coverImage = `https://icards.com.vn/og-image/${id}`;
 
     const cleanText = (text) => {
       if (!text) return '';
