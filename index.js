@@ -82,9 +82,11 @@ app.get('/events/:id', async (req, res) => {
       // Sử dụng replaceAll để thay thế tất cả vị trí xuất hiện
       const injectedHtml = htmlData
         .replaceAll('__META_TITLE__', title)
+        .replaceAll('__OG_TITLE__', title) // Thêm dòng này cho Zalo
         .replaceAll('__META_DESCRIPTION__', description)
-        .replaceAll('__META_IMAGE__', image)
-        .replaceAll('__META_URL__', url);
+        .replaceAll('__OG_DESCRIPTION__', description) // Thêm dòng này cho Zalo
+        .replaceAll('__OG_IMAGE__', image) // Đổi từ __META_IMAGE__ sang __OG_IMAGE__
+        .replaceAll('__OG_URL__', url);    // Đổi từ __META_URL__ sang __OG_URL__
 
       console.log(`SEO Success: ${id} - Image: ${image}`);
       res.send(injectedHtml);
