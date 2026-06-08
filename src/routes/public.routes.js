@@ -40,19 +40,25 @@ router.use('/fonts', fontRoutes);
 router.use('/invitation-templates', invitationTemplateRoutes);
 router.use('/topics', topicRoutes);
 // Thêm route này vào BE/routes/public.routes.js
-router.get('/seo-events/:eventId', catchAsync(async (req, res, next) => {
+router.get('/events/:eventId', catchAsync(async (req, res, next) => {
     const { eventId } = req.params;
     
-    // Lấy query param guestId (nếu bạn cần xử lý gì đó riêng cho guest, nếu không thì bỏ qua)
-    // const { guestId } = req.query; 
+    // 1. Phân loại Bot và User thật (Bot Detection)
+    const userAgent = req.headers['user-agent'] || '';
+    const isBot = /zalo|facebookexternalhit|twitterbot|googlebot|crawler/i.test(userAgent);
+    
+    const indexPath = path.resolve(__dirname, '../../../frontend/build/index.html');
 
-    // 1. Tìm thiệp bằng ID thay vì slug
-    // Lưu ý: Đảm bảo model của bạn truy vấn đúng trường (_id hoặc eventId)
+    // 2. TỐI ƯU HIỆU NĂNG: Nếu là người thật (browser) -> Serve luôn file tĩnh để React tự render.
+    if (!isBot) {
+        if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
+        return res.status(404).send('Không tìm thấy sự kiện.');
+    }
+
+    // 3. NẾU LÀ BOT (Zalo/Facebook): Query DB và xử lý thẻ Meta
     const invitation = await Invitation.findById(eventId)
         .select('imgSrc content settings.title settings.description settings.heroImages')
         .lean();
-
-    const indexPath = path.resolve(__dirname, '../../../frontend/build/index.html');
 
     if (!invitation) {
         if (fs.existsSync(indexPath)) return res.sendFile(indexPath);
@@ -65,23 +71,28 @@ router.get('/seo-events/:eventId', catchAsync(async (req, res, next) => {
         const cleanText = (text) => text ? text.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim() : '';
 
         const title = cleanText(invitation.settings?.title) || 'Thiệp mời sự kiện - iCards';
-        const description = cleanText(invitation.description || invitation.settings?.description) || 'Bạn nhận được một lời mời trân trọng!';
+        const description = cleanText(invitation.settings?.description) || 'Bạn nhận được một lời mời trân trọng!';
         
-        let firstPageBackgroundImage = invitation.content?.length > 0 ? invitation.content[0].backgroundImage : null;
+        // 4. LẤY ẢNH BÌA MẶT TRƯỚC (Trang đầu tiên trong editor)
+        let coverImage = 'https://icards.com.vn/default-share-thumbnail.jpg'; // Ảnh dự phòng
+        
+        if (invitation.content && invitation.content.length > 0 && invitation.content[0].backgroundImage) {
+            // Lấy chính xác ảnh background của trang số 1 trong mảng content Canvas
+            coverImage = invitation.content[0].backgroundImage;
+        } else if (invitation.imgSrc) {
+            coverImage = invitation.imgSrc;
+        } else if (invitation.settings?.heroImages?.main) {
+            coverImage = invitation.settings.heroImages.main;
+        }
 
-        const coverImage = invitation.imgSrc 
-            || firstPageBackgroundImage
-            || invitation.settings?.heroImages?.main 
-            || 'https://icards.com.vn/default-share-thumbnail.jpg';
-
-        // Lưu ý giữ nguyên full link (kể cả có guestId hay không)
         const shareUrl = `https://icards.com.vn/events/${eventId}`;
 
-        // Bơm dữ liệu
+        // 5. Ghi đè vào các placeholder của React index.html
         const injectedHtml = htmlData
+            .replace(/__META_TITLE__/g, title)
             .replace(/__OG_TITLE__/g, title)
-            .replace(/__OG_DESCRIPTION__/g, description) // Sửa đoạn này nếu HTML gốc của bạn là __META_DESCRIPTION__
-            .replace(/__META_DESCRIPTION__/g, description) // Thêm dòng này cho chắc ăn, đề phòng HTML thẻ <meta name="description">
+            .replace(/__OG_DESCRIPTION__/g, description)
+            .replace(/__META_DESCRIPTION__/g, description) 
             .replace(/__OG_IMAGE__/g, coverImage)
             .replace(/__OG_URL__/g, shareUrl);
 
