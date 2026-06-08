@@ -45,7 +45,8 @@ app.use(cookieParser());
 app.use(express.static('public')); // Phục vụ file tĩnh
 // --- CẤU HÌNH ĐƯỜNG DẪN TỚI FILE INDEX.HTML ĐÃ BUILD ---
 // Giả định file index.js nằm cùng cấp với thư mục public
-const indexPath = path.resolve(__dirname, 'public', 'index.html');
+const indexPath = path.resolve('/home/icards/icards/build', 'index.html');
+
 
 // ============================================================
 // LOGIC SEO: REPLACE PLACEHOLDERS
