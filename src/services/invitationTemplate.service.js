@@ -31,7 +31,7 @@ const getTemplateById = async (id) => {
  */
 const processTemplateFiles = async (files, payload) => {
     if (!files) return;
-
+    clearOgCache(id);
     // Xử lý ảnh đại diện
     if (files.image && files.image[0]) {
         const buffer = await sharp(files.image[0].buffer)
@@ -65,6 +65,13 @@ const processTemplateFiles = async (files, payload) => {
 const createTemplate = async (payload, files) => {
     await processTemplateFiles(files, payload);
     return await InvitationTemplate.create(payload);
+};
+const clearOgCache = (invitationId) => {
+  const cacheFile = path.join(require('os').tmpdir(), 'og-cache', `${invitationId}.png`);
+  if (require('fs').existsSync(cacheFile)) {
+    require('fs').unlinkSync(cacheFile);
+    console.log('Cleared OG cache for:', invitationId);
+  }
 };
 
 /**
