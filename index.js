@@ -112,31 +112,35 @@ app.get('/og-image/:id', async (req, res) => {
 app.get('/events/:id', async (req, res) => {
   console.log('====== HIT EVENT ROUTE ======', req.params.id);
   console.log('User Agent:', req.headers['user-agent']);
-
   try {
     const { id } = req.params;
-
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return serveDefaultHtml(res);
     }
-    
-    // Lấy thêm guests khi query
-    const invitation = await Invitation.findById(id)
-    .select('imgSrc content settings guests')
-    .lean();
-    
-    // Tìm guest nếu có guestId trong query
-    const coverImage = guestId 
-    ? `https://icards.com.vn/og-image/${id}?guestId=${guestId}`
-    : `https://icards.com.vn/og-image/${id}`;
 
+    // Khai báo guestId TRƯỚC khi dùng
     const guestId = req.query.guestId;
-    const guest = guestId 
+
+    const invitation = await Invitation.findById(id)
+      .select('imgSrc content settings guests')
+      .lean();
+
+    if (!invitation) {
+      return serveDefaultHtml(res);
+    }
+
+    // Dùng guestId SAU khi đã khai báo
+    const coverImage = guestId
+      ? `https://icards.com.vn/og-image/${id}?guestId=${guestId}`
+      : `https://icards.com.vn/og-image/${id}`;
+
+    const guest = guestId
       ? invitation.guests?.find(g => g._id.toString() === guestId)
       : null;
 
     const salutation = guest?.salutation || invitation.settings?.salutationStyle || '';
     const guestName = guest?.name || '';
+
 
     const cleanText = (text) => {
       if (!text) return '';
