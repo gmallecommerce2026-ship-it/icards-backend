@@ -13,8 +13,6 @@ const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
 const Invitation = require('./src/models/invitation.model'); // Đảm bảo đường dẫn đúng tới Model Invitation
-const os = require('os');
-const cacheDir = path.join(os.tmpdir(), 'og-cache');
 
 const cron = require('node-cron');
 const moment = require('moment');
@@ -53,8 +51,6 @@ const indexPath = path.resolve('/home/icards/icards/build', 'index.html');
 // ============================================================
 // LOGIC SEO: REPLACE PLACEHOLDERS
 // ============================================================
-if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-
 app.get('/og-image/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -63,20 +59,11 @@ app.get('/og-image/:id', async (req, res) => {
       return res.status(404).send('Not found');
     }
 
-    const cacheFile = path.join(cacheDir, `${id}.png`);
-
-    // Nếu đã có cache → trả về ngay, không render lại
-    if (fs.existsSync(cacheFile)) {
-      res.setHeader('Content-Type', 'image/png');
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-      return fs.createReadStream(cacheFile).pipe(res);
-    }
-
     const invitation = await Invitation.findById(id)
       .select('content imgSrc')
       .lean();
 
-    if (!invitation?.content?.length) {
+    if (!invitation || !invitation.content || invitation.content.length === 0) {
       return res.redirect('https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public');
     }
 
@@ -85,11 +72,8 @@ app.get('/og-image/:id', async (req, res) => {
 
     const imageBuffer = await renderFirstPageToBuffer(firstPage, originalWidth);
 
-    // Lưu cache
-    fs.writeFileSync(cacheFile, imageBuffer);
-
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // cache 1 giờ
     res.send(imageBuffer);
 
   } catch (error) {
