@@ -57,14 +57,16 @@ if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
 app.get('/og-image/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const guestId = req.query.guestId; // Lấy guestId từ query
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(404).send('Not found');
     }
 
-    const cacheFile = path.join(cacheDir, `${id}.png`);
+    // Cache key khác nhau theo guestId
+    const cacheKey = guestId ? `${id}_${guestId}` : id;
+    const cacheFile = path.join(cacheDir, `${cacheKey}.png`);
 
-    // Nếu đã có cache → trả về ngay, không render lại
     if (fs.existsSync(cacheFile)) {
       res.setHeader('Content-Type', 'image/png');
       res.setHeader('Cache-Control', 'public, max-age=86400');
@@ -72,19 +74,27 @@ app.get('/og-image/:id', async (req, res) => {
     }
 
     const invitation = await Invitation.findById(id)
-      .select('content imgSrc')
+      .select('content imgSrc guests')
       .lean();
 
     if (!invitation?.content?.length) {
       return res.redirect('https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public');
     }
 
+    // Tìm thông tin guest
+    const guest = guestId
+      ? invitation.guests?.find(g => g._id.toString() === guestId)
+      : null;
+
+    const guestDetails = guest
+      ? { name: guest.name, salutation: guest.salutation }
+      : null;
+
     const firstPage = invitation.content[0];
     const originalWidth = firstPage.canvasWidth || 567;
 
-    const imageBuffer = await renderFirstPageToBuffer(firstPage, originalWidth);
+    const imageBuffer = await renderFirstPageToBuffer(firstPage, originalWidth, guestDetails);
 
-    // Lưu cache
     fs.writeFileSync(cacheFile, imageBuffer);
 
     res.setHeader('Content-Type', 'image/png');
@@ -96,6 +106,7 @@ app.get('/og-image/:id', async (req, res) => {
     res.redirect('https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public');
   }
 });
+
 
 
 app.get('/events/:id', async (req, res) => {
@@ -115,7 +126,10 @@ app.get('/events/:id', async (req, res) => {
     .lean();
     
     // Tìm guest nếu có guestId trong query
-    const coverImage = `https://icards.com.vn/og-image/${id}`;
+    const coverImage = guestId 
+    ? `https://icards.com.vn/og-image/${id}?guestId=${guestId}`
+    : `https://icards.com.vn/og-image/${id}`;
+
     const guestId = req.query.guestId;
     const guest = guestId 
       ? invitation.guests?.find(g => g._id.toString() === guestId)
