@@ -3,7 +3,7 @@ const InvitationTemplate = require('../models/invitationTemplate.model'); // Imp
 const nodemailer = require('nodemailer'); // Uncomment if using Nodemailer
 const mongoose = require('mongoose');
 const masterGuestService = require('./masterGuest.service');
-
+const path = require('path');
 
 
 // Thêm vào đầu file nơi cần dùng
