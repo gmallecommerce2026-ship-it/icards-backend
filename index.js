@@ -13,7 +13,8 @@ const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
 const Invitation = require('./src/models/invitation.model'); // Đảm bảo đường dẫn đúng tới Model Invitation
-
+const os = require('os');
+const cacheDir = path.join(os.tmpdir(), 'og-cache');
 const cron = require('node-cron');
 const moment = require('moment');
 const { sendInvitationEmailToGuest } = require('./src/services/invitation.service');
@@ -51,6 +52,8 @@ const indexPath = path.resolve('/home/icards/icards/build', 'index.html');
 // ============================================================
 // LOGIC SEO: REPLACE PLACEHOLDERS
 // ============================================================
+if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+
 app.get('/og-image/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -59,11 +62,20 @@ app.get('/og-image/:id', async (req, res) => {
       return res.status(404).send('Not found');
     }
 
+    const cacheFile = path.join(cacheDir, `${id}.png`);
+
+    // Nếu đã có cache → trả về ngay, không render lại
+    if (fs.existsSync(cacheFile)) {
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return fs.createReadStream(cacheFile).pipe(res);
+    }
+
     const invitation = await Invitation.findById(id)
       .select('content imgSrc')
       .lean();
 
-    if (!invitation || !invitation.content || invitation.content.length === 0) {
+    if (!invitation?.content?.length) {
       return res.redirect('https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public');
     }
 
@@ -72,8 +84,11 @@ app.get('/og-image/:id', async (req, res) => {
 
     const imageBuffer = await renderFirstPageToBuffer(firstPage, originalWidth);
 
+    // Lưu cache
+    fs.writeFileSync(cacheFile, imageBuffer);
+
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=3600'); // cache 1 giờ
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     res.send(imageBuffer);
 
   } catch (error) {
@@ -81,6 +96,7 @@ app.get('/og-image/:id', async (req, res) => {
     res.redirect('https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public');
   }
 });
+
 
 app.get('/events/:id', async (req, res) => {
   console.log('====== HIT EVENT ROUTE ======', req.params.id);
@@ -92,25 +108,42 @@ app.get('/events/:id', async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return serveDefaultHtml(res);
     }
-
+    
+    // Lấy thêm guests khi query
     const invitation = await Invitation.findById(id)
-      .select('imgSrc content settings.title settings.description settings.heroImages')
-      .lean();
-
-    if (!invitation) {
-      return serveDefaultHtml(res);
-    }
-
-    // Lấy ảnh bìa mặt trước
+    .select('imgSrc content settings guests')
+    .lean();
+    
+    // Tìm guest nếu có guestId trong query
     const coverImage = `https://icards.com.vn/og-image/${id}`;
+    const guestId = req.query.guestId;
+    const guest = guestId 
+      ? invitation.guests?.find(g => g._id.toString() === guestId)
+      : null;
+
+    const salutation = guest?.salutation || invitation.settings?.salutationStyle || '';
+    const guestName = guest?.name || '';
 
     const cleanText = (text) => {
       if (!text) return '';
-      return text.replace(/\{[^}]+\}/g, '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+      return text
+        .replace(/\{LờiXưngHô\}/g, salutation)
+        .replace(/\{TênKháchMời\}/g, guestName)
+        .replace(/\{[^}]+\}/g, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
     };
 
-    const title = cleanText(invitation.settings?.title) || 'Thiệp Mời Online - iCards.com.vn';
-    const description = cleanText(invitation.settings?.description) || 'Trân trọng kính mời bạn đến tham dự sự kiện đặc biệt này.';
+    const rawTitle = cleanText(invitation.settings?.title);
+    const title = rawTitle && rawTitle.replace(/[!.,\s]/g, '').length > 0
+      ? rawTitle
+      : 'Thiệp Mời Online - iCards.com.vn';
+
+    const rawDesc = cleanText(invitation.settings?.description);
+    const description = rawDesc && rawDesc.length > 5
+      ? rawDesc
+      : 'Trân trọng kính mời bạn đến tham dự sự kiện đặc biệt này.';
     const url = `https://icards.com.vn/events/${id}`;
 
     console.log('coverImage:', coverImage);

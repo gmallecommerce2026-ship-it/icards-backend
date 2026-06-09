@@ -3,6 +3,17 @@ const InvitationTemplate = require('../models/invitationTemplate.model'); // Imp
 const nodemailer = require('nodemailer'); // Uncomment if using Nodemailer
 const mongoose = require('mongoose');
 const masterGuestService = require('./masterGuest.service');
+
+
+
+// Thêm vào đầu file nơi cần dùng
+const clearOgCache = (invitationId) => {
+  const cacheFile = path.join(require('os').tmpdir(), 'og-cache', `${invitationId}.png`);
+  if (require('fs').existsSync(cacheFile)) {
+    require('fs').unlinkSync(cacheFile);
+    console.log('Cleared OG cache for:', invitationId);
+  }
+};
 /**
  * [MỚI]
  * Lấy một thiệp mời công khai bằng slug của nó.
@@ -89,7 +100,7 @@ const createInvitationFromTemplate = async (userId, templateId, slug, content, d
  */
 const updateInvitation = async (invitationId, userId, updateData) => {
     const updatePayload = {}; // Đổi tên từ allowedUpdates
-
+    clearOgCache(invitationId);
     // Các trường này có thể ghi đè an toàn
     if (updateData.slug) updatePayload.slug = updateData.slug;
     if (updateData.content) updatePayload.content = updateData.content;
