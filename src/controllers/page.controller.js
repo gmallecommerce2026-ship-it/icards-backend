@@ -5,44 +5,42 @@ const Product = require('../models/product.model');
 
 const getPublicPageBySlug = async (req, res, next) => {
     try {
-        // 1. Lấy thông tin bài viết hiện tại
+        // 1. Lấy thông tin bài viết hiện tại (Đã được populate injectedBlocks ở Service)
         const page = await pageService.getPageBySlug(req.params.slug);
         if (!page) {
             return res.status(404).json({ message: 'Trang không tồn tại hoặc chưa được xuất bản.' });
         }
 
-        // 2. [MỚI] Lấy danh sách sản phẩm gợi ý (Ví dụ: 5 sản phẩm mới nhất)
-        // Bạn có thể đổi logic sort hoặc filter theo category nếu muốn
+        // 2. Lấy danh sách sản phẩm gợi ý (5 sản phẩm mới nhất để dưới cuối bài)
         const relatedProducts = await Product.find({})
-            .select('title price images imgSrc slug') // Chỉ lấy các trường cần thiết để tối ưu
+            .select('title price images imgSrc slug') 
             .sort({ createdAt: -1 })
             .limit(5)
             .lean();
 
-        // 3. [MỚI] Lấy danh sách bài viết mới nhất (cho Sidebar)
+        // 3. Lấy danh sách bài viết mới nhất (cho Sidebar)
         const latestPosts = await Page.find({
             isPublished: true,
-            isBlog: true,            // Chỉ lấy các trang là Blog
-            _id: { $ne: page._id }   // Loại trừ bài viết hiện tại
+            isBlog: true,            
+            _id: { $ne: page._id }   
         })
-        .select('title slug createdAt')
+        .select('title slug createdAt thumbnail category') // Bổ sung thumbnail, category cho giao diện sidebar Frontend
         .sort({ createdAt: -1 })
         .limit(5)
         .lean();
 
         // 4. Chuẩn bị dữ liệu trả về
-        // Frontend đang đọc: const relatedProducts = blog.relatedProducts || [];
-        // => Ta gộp relatedProducts vào object page
+        // Nhờ hàm .toObject(), mảng injectedBlocks chứa data sản phẩm nội tuyến sẽ được giữ nguyên
         const responseData = {
             ...page.toObject(),
-            relatedProducts: relatedProducts 
+            relatedProducts: relatedProducts // Override lại bằng 5 SP mới nhất theo logic gốc
         };
 
         res.status(200).json({ 
             status: 'success', 
             data: responseData,
             related: {
-                latestPosts: latestPosts // Dữ liệu cho phần "Bài viết mới nhất"
+                latestPosts: latestPosts 
             }
         });
 
@@ -51,10 +49,8 @@ const getPublicPageBySlug = async (req, res, next) => {
     }
 };
 
-// SỬA ĐỔI: Truyền query params xuống service
 const getPublicPages = async (req, res, next) => {
     try {
-        // req.query chứa: { isBlog, category, search, limit, ... }
         const pages = await pageService.getPublicPages(req.query);
         res.status(200).json({ status: 'success', data: pages });
     } catch (error) {
