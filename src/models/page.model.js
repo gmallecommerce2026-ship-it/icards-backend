@@ -19,7 +19,25 @@ const mongoose = require('mongoose');
 // }, { _id: true });
 
 
-
+const injectedBlockSchema = new mongoose.Schema({
+    type: { 
+        type: String, 
+        required: true,
+        enum: ['product', 'banner'] 
+    },
+    position: { 
+        type: Number, 
+        required: true,
+        default: 1
+    },
+    productId: { 
+        type: mongoose.Schema.ObjectId, 
+        ref: 'Product',
+        default: null
+    },
+    bannerImg: { type: String, default: '' },
+    bannerLink: { type: String, default: '' }
+}, { _id: true });
 const pageSchema = new mongoose.Schema({
     title: {
         type: String,
@@ -42,6 +60,7 @@ const pageSchema = new mongoose.Schema({
         default: false,
         index: true,
     },
+    injectedBlocks: [injectedBlockSchema],
     // --- BẮT ĐẦU: Thêm trường category ---
     category: {
         type: mongoose.Schema.ObjectId,
