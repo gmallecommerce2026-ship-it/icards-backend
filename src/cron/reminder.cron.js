@@ -4,7 +4,7 @@ const Invitation = require('../models/invitation.model');
 const { sendInvitationEmailToGuest } = require('../services/invitation.service');
 
 // Chạy job vào lúc 08:00 sáng mỗi ngày
-cron.schedule('0 8 * * *', async () => {
+cron.schedule('* * * * *', async () => {
     console.log('[CRON] Bắt đầu chạy tiến trình quét email nhắc nhở...');
     try {
         const today = moment().startOf('day');
