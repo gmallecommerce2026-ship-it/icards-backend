@@ -401,7 +401,38 @@ const removeGuestGroupFromInvitation = async (invitationId, groupId, userId) => 
     
     return await invitation.save();
 };
+const getSalutation = (guest, invitation) => {
+    const settings = invitation.settings || {};
+    
+    // 1. Dùng chung cho tất cả (ghi đè mọi thứ)
+    if (settings.useGlobalSalutation) {
+        return settings.salutationStyle || 'Thân gửi';
+    }
 
+    // 2. Lời xưng hô riêng của cá nhân (ưu tiên cao nhất nếu không bật global)
+    if (guest.salutation && guest.salutation !== 'Lời xưng hô mặc định') {
+        return guest.salutation;
+    }
+
+    // 3. Lời xưng hô theo Nhóm khách mời
+    if (guest.group && invitation.guestGroups && invitation.guestGroups.length > 0) {
+        const group = invitation.guestGroups.find(g => g._id.toString() === guest.group.toString());
+        if (group && group.salutation && group.salutation !== 'Lời xưng hô mặc định') {
+            return group.salutation;
+        }
+    }
+
+    // 4. Mặc định của thiệp
+    return settings.salutationStyle || 'Thân gửi';
+};
+
+const processPlaceholders = (text, guestName, salutation) => {
+    if (!text) return '';
+    // Dùng Regex /g để thay thế TẤT CẢ các chỗ chứa từ khóa
+    return text
+        .replace(/{TênKháchMời}/g, guestName || '')
+        .replace(/{LờiXưngHô}/g, salutation || '');
+};
 /**
  * MỚI: Gửi email thiệp mời đến một khách mời cụ thể.
  * @param {string} invitationId - ID của thiệp mời.
@@ -424,23 +455,27 @@ const sendInvitationEmailToGuest = async (invitationId, guestId, userId) => {
         throw new Error('Khách mời không có địa chỉ email.');
     }
 
-    const { title, description, salutationStyle, useGlobalSalutation } = invitation.settings; // MỚI
-    const { name, salutation, _id: finalGuestId } = guest;
+    const { title, description } = invitation.settings;
+    const { name, _id: finalGuestId } = guest;
 
-    const finalSalutation = useGlobalSalutation
-        ? salutationStyle
-        : (salutation || salutationStyle);
+    // 1. Lấy Lời xưng hô chuẩn xác dựa trên Helper
+    const finalSalutation = getSalutation(guest, invitation);
     
-        const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const destinationUrl = `${frontendBaseUrl}/events/${invitation._id}?guestId=${finalGuestId}`;
 
-    const finalSubject = (title || 'Bạn có một lời mời mới!').replace('{TênKháchMời}', name).replace('{LờiXưngHô}', finalSalutation);
+    // 2. Xử lý Subject (thay thế TẤT CẢ placeholder)
+    const rawSubject = title || 'Bạn có một lời mời mới!';
+    const finalSubject = processPlaceholders(rawSubject, name, finalSalutation);
 
+    // 3. Xử lý Body (thay thế TẤT CẢ placeholder và xuống dòng)
+    const rawBody = description || 'Bạn vừa nhận được một lời mời sự kiện.';
+    const finalBody = processPlaceholders(rawBody, name, finalSalutation).replace(/\n/g, '<br>');
+
+    // Đoạn text chào mừng cố định (nếu muốn giữ nguyên)
     const personalizedBody = `
         <p><b>${finalSalutation} ${name},</b></p>
     `;
-
-    const finalBody = (description || 'Bạn vừa nhận được một lời mời sự kiện.').replace(/\n/g, '<br>');
 
     const fullHtmlBody = `
     <!DOCTYPE html>
@@ -537,7 +572,6 @@ const sendInvitationEmailToGuest = async (invitationId, guestId, userId) => {
     </body>
     </html>
     `;
-    // ---- END: NÂNG CẤP TOÀN BỘ GIAO DIỆN EMAIL ----
 
     const transporter = nodemailer.createTransport({
         service: 'gmail', 
