@@ -11,15 +11,15 @@ cron.schedule('* * * * *', async () => {
 
         // Tìm tất cả thiệp mời có eventDate và mảng emailReminders không rỗng
         const invitations = await Invitation.find({
-            'settings.eventDate': { $exists: true, $ne: null },
-            'settings.emailReminders': { $exists: true, $not: { $size: 0 } }
+            'settings.eventDate': { $exists: true, $ne: null }, // PHẢI CÓ NGÀY SỰ KIỆN
+            'settings.emailReminders': { $exists: true, $not: { $size: 0 } } // PHẢI CÓ LỊCH NHẮC NHỞ
         });
 
         let emailsSentCount = 0;
 
         for (const invitation of invitations) {
             const eventDate = moment(invitation.settings.eventDate).startOf('day');
-            
+
             // Tính số ngày còn lại đến sự kiện
             const daysUntilEvent = eventDate.diff(today, 'days');
 
