@@ -2,16 +2,22 @@
 const mongoose = require('mongoose');
 
 const bannerSchema = new mongoose.Schema({
-    image: { type: String, default: '' },
-    text: { type: String, default: '' },
-    fontFamily: { type: String, default: 'Arial' },
-    fontUrl: { type: String, default: '' },
-    color: { type: String, default: '#FFFFFF' },
-    fontSize: { type: Number, default: 48 }
-});
+    id: { type: String, required: true },
+    name: { type: String, default: '' },
+    isEnabled: { type: Boolean, default: true },
+    displayPage: { type: String, default: 'all' },
+    // Bổ sung thêm 'html' vào enum
+    mediaType: { type: String, enum: ['image', 'video', 'html'], default: 'image' },
+    imageUrl: { type: String, default: '' },
+    videoUrl: { type: String, default: '' },
+    title: { type: String, default: '' },
+    subtitle: { type: String, default: '' },
+    htmlContent: { type: String, default: '' },
+    link: { type: String, default: '' }
+}, { _id: false });
 
 const navItemSchema = new mongoose.Schema({
-    id: { type: String, required: true }, 
+    id: { type: String, required: true },
     title: { type: String, required: true },
     path: { type: String, required: true },
     order: { type: Number, default: 0 },
@@ -96,13 +102,13 @@ const settingsSchema = new mongoose.Schema({
                 keywords: String,
                 social: { ogTitle: String, ogDescription: String, ogImage: String }
             },
-            products: { 
+            products: {
                 title: String,
                 description: String,
                 keywords: String,
                 social: { ogTitle: String, ogDescription: String, ogImage: String }
             },
-            invitations: { 
+            invitations: {
                 title: String,
                 description: String,
                 keywords: String,
@@ -121,7 +127,7 @@ const settingsSchema = new mongoose.Schema({
         }]
     },
     occasionOrder: {
-        type: [String], 
+        type: [String],
         default: [],
         description: 'Lưu trữ mảng các key dạng Category-Group-Type theo thứ tự hiển thị'
     }
