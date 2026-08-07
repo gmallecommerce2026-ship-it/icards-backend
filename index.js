@@ -411,7 +411,7 @@ app.use(errorHandler);
 // ============================================================
 // 4. CATCH-ALL ROUTE CHO FRONTEND REACT (ĐẶT Ở BƯỚC CUỐI CÙNG)
 // ============================================================
-app.get('*', (req, res) => {
+app.get(/.*/, (req, res) => {
   serveDynamicHtml(req, res);
 });
 
