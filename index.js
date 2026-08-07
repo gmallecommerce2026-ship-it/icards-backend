@@ -68,6 +68,19 @@ app.use(express.static('public'));
 app.use(express.static('/home/icards/icards/build'));
 
 if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+const escapeXml = (unsafe) => {
+  if (!unsafe) return '';
+  return String(unsafe).replace(/[<>&'"]/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case "'": return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
+};
 
 // ============================================================
 // HÀM BỔ TRỢ: THAY THẾ PLACEHOLDERS SEO META DỘNG
@@ -110,22 +123,27 @@ app.get('/sitemap.xml', async (req, res) => {
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
     staticRoutes.forEach((route) => {
-      xml += `  <url>\n    <loc>${baseUrl}${route}</loc>\n    <changefreq>daily</changefreq>\n    <priority>${route === '' ? '1.0' : '0.8'}</priority>\n  </url>\n`;
+      const loc = escapeXml(`${baseUrl}${route}`);
+      xml += `  <url>\n    <loc>${loc}</loc>\n    <changefreq>daily</changefreq>\n    <priority>${route === '' ? '1.0' : '0.8'}</priority>\n  </url>\n`;
     });
 
     products.forEach((p) => {
       const lastMod = p.updatedAt ? new Date(p.updatedAt).toISOString() : new Date().toISOString();
-      xml += `  <url>\n    <loc>${baseUrl}/product/${p._id}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+      const loc = escapeXml(`${baseUrl}/product/${encodeURIComponent(p._id)}`);
+      xml += `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
     });
 
     pages.forEach((p) => {
+      if (!p.slug) return;
       const lastMod = p.updatedAt ? new Date(p.updatedAt).toISOString() : new Date().toISOString();
-      xml += `  <url>\n    <loc>${baseUrl}/page/${p.slug}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+      const loc = escapeXml(`${baseUrl}/page/${encodeURIComponent(p.slug)}`);
+      xml += `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
     });
 
     templates.forEach((t) => {
       const lastMod = t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString();
-      xml += `  <url>\n    <loc>${baseUrl}/invitation/${t._id}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>\n`;
+      const loc = escapeXml(`${baseUrl}/invitation/${encodeURIComponent(t._id)}`);
+      xml += `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>\n`;
     });
 
     xml += `</urlset>`;
