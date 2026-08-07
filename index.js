@@ -10,34 +10,36 @@ const routes = require('./src/routes');
 const passport = require('passport');
 const session = require('express-session');
 
-// --- CÁC MODEL BỔ SUNG DÙNG CHO SEO DYNAMIC & SITEMAP ---
+// --- THƯ VIỆN & MODEL DÙNG CHO SEO & SITEMAP ---
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const cron = require('node-cron');
+const moment = require('moment');
+
+const { renderFirstPageToBuffer } = require('./src/services/canvasRender.service');
+const { sendInvitationEmailToGuest } = require('./src/services/invitation.service');
 const Invitation = require('./src/models/invitation.model');
 const Product = require('./src/models/product.model');
 const Page = require('./src/models/page.model');
 const InvitationTemplate = require('./src/models/invitationTemplate.model');
 const Setting = require('./src/models/settings.model');
-const { generateSitemap, generateRobotsTxt } = require('./src/controllers/sitemap.controller');
-
-const os = require('os');
-const cacheDir = path.join(os.tmpdir(), 'og-cache');
-const cron = require('node-cron');
-const moment = require('moment');
-const { sendInvitationEmailToGuest } = require('./src/services/invitation.service');
 
 require('./src/config/passport');
 dotenv.config();
 const app = express();
 const port = process.env.PORT || 5000;
 
+const cacheDir = path.join(os.tmpdir(), 'og-cache');
+const indexPath = path.resolve('/home/icards/icards/build', 'index.html');
+
 const corsOptions = {
-  origin: ['https://icards.com.vn', 'https://www.icards.com.vn', 'https://admin.icards.com.vn', 'https://www.admin.icards.com.vn', 'https://icards.vercel.app', 'https://icards-dashboard.vercel.app'], 
-  credentials: true, 
+  origin: ['https://icards.com.vn', 'https://www.icards.com.vn', 'https://admin.icards.com.vn', 'https://www.admin.icards.com.vn', 'https://icards.vercel.app', 'https://icards-dashboard.vercel.app'],
+  credentials: true,
 };
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'secret_key', 
+  secret: process.env.SESSION_SECRET || 'secret_key',
   resave: false,
   saveUninitialized: false,
 }));
@@ -49,20 +51,96 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 
-app.use(express.static('public')); // Phục vụ file tĩnh
+// Phục vụ file tĩnh công khai & file Build React
+app.use(express.static('public'));
 app.use(express.static('/home/icards/icards/build'));
-const indexPath = path.resolve('/home/icards/icards/build', 'index.html');
 
 if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
 
 // ============================================================
-// 1. DĂNG KÝ ROUTE SITEMAP & ROBOTS.TXT
+// HÀM BỔ TRỢ: THAY THẾ PLACEHOLDERS SEO META DỘNG
 // ============================================================
-app.get('/sitemap.xml', generateSitemap);
-app.get('/robots.txt', generateRobotsTxt);
+const injectMetaPlaceholders = (htmlData, meta) => {
+  return htmlData
+    .replaceAll('__META_TITLE__', meta.title)
+    .replaceAll('__OG_TITLE__', meta.title)
+    .replaceAll('__TWITTER_TITLE__', meta.title)
+    .replaceAll('__META_DESCRIPTION__', meta.description)
+    .replaceAll('__OG_DESCRIPTION__', meta.description)
+    .replaceAll('__TWITTER_DESCRIPTION__', meta.description)
+    .replaceAll('__META_IMAGE__', meta.image)
+    .replaceAll('__OG_IMAGE__', meta.image)
+    .replaceAll('__TWITTER_IMAGE__', meta.image)
+    .replaceAll('__META_URL__', meta.url)
+    .replaceAll('__OG_URL__', meta.url)
+    .replaceAll('__CANONICAL_URL__', meta.url)
+    .replaceAll('__META_KEYWORDS__', meta.keywords || 'thiệp cưới online, thiệp mời điện tử, thiệp sự kiện, icards')
+    .replaceAll('__META_ROBOTS__', meta.robots || 'index, follow')
+    .replaceAll('__OG_TYPE__', meta.type || 'website');
+};
 
 // ============================================================
-// 2. DĂNG KÝ ROUTE SEO ĐẶC THÙ (OG IMAGE & EVENTS)
+// 1. ROUTE DỘNG SITEMAP.XML & ROBOTS.TXT
+// ============================================================
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const baseUrl = 'https://icards.com.vn';
+
+    const [products, pages, templates] = await Promise.all([
+      Product.find({}).select('_id updatedAt').lean().catch(() => []),
+      Page.find({ isPublished: true, isBlog: true }).select('slug updatedAt').lean().catch(() => []),
+      InvitationTemplate.find({ isActive: true }).select('_id updatedAt').lean().catch(() => []),
+    ]);
+
+    const staticRoutes = ['', '/shop', '/invitations', '/page', '/faq', '/about', '/professional'];
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+
+    staticRoutes.forEach((route) => {
+      xml += `  <url>\n    <loc>${baseUrl}${route}</loc>\n    <changefreq>daily</changefreq>\n    <priority>${route === '' ? '1.0' : '0.8'}</priority>\n  </url>\n`;
+    });
+
+    products.forEach((p) => {
+      const lastMod = p.updatedAt ? new Date(p.updatedAt).toISOString() : new Date().toISOString();
+      xml += `  <url>\n    <loc>${baseUrl}/product/${p._id}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+    });
+
+    pages.forEach((p) => {
+      const lastMod = p.updatedAt ? new Date(p.updatedAt).toISOString() : new Date().toISOString();
+      xml += `  <url>\n    <loc>${baseUrl}/page/${p.slug}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+    });
+
+    templates.forEach((t) => {
+      const lastMod = t.updatedAt ? new Date(t.updatedAt).toISOString() : new Date().toISOString();
+      xml += `  <url>\n    <loc>${baseUrl}/invitation/${t._id}</loc>\n    <lastmod>${lastMod}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.6</priority>\n  </url>\n`;
+    });
+
+    xml += `</urlset>`;
+
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.status(200).send(xml);
+  } catch (error) {
+    console.error('Sitemap Error:', error);
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
+app.get('/robots.txt', (req, res) => {
+  const robots = `User-agent: *
+Allow: /
+Disallow: /account-settings
+Disallow: /invitation-management
+Disallow: /canvas/
+
+Sitemap: https://icards.com.vn/sitemap.xml
+`;
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.status(200).send(robots);
+});
+
+// ============================================================
+// 2. ROUTE SEO ĐẶC THÙ (OG IMAGE & EVENTS)
 // ============================================================
 app.get('/og-image/:id', async (req, res) => {
   try {
@@ -117,6 +195,7 @@ app.get('/og-image/:id', async (req, res) => {
 
 app.get('/events/:id', async (req, res) => {
   console.log('====== HIT EVENT ROUTE ======', req.params.id);
+  console.log('User Agent:', req.headers['user-agent']);
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -169,21 +248,16 @@ app.get('/events/:id', async (req, res) => {
     fs.readFile(indexPath, 'utf8', (err, htmlData) => {
       if (err) return res.status(500).send('Server Error');
 
-      const injectedHtml = htmlData
-        .replaceAll('__META_TITLE__', title)
-        .replaceAll('__OG_TITLE__', title)
-        .replaceAll('__META_DESCRIPTION__', description)
-        .replaceAll('__OG_DESCRIPTION__', description)
-        .replaceAll('__META_IMAGE__', coverImage)
-        .replaceAll('__OG_IMAGE__', coverImage)
-        .replaceAll('__META_URL__', url)
-        .replaceAll('__OG_URL__', url)
-        .replaceAll('__TWITTER_TITLE__', title)
-        .replaceAll('__TWITTER_DESCRIPTION__', description)
-        .replaceAll('__TWITTER_IMAGE__', coverImage)
-        .replaceAll('__CANONICAL_URL__', url)
-        .replaceAll('__OG_TYPE__', 'article')
-        .replaceAll('__META_ROBOTS__', 'index, follow');
+      const meta = {
+        title,
+        description,
+        image: coverImage,
+        url,
+        type: 'article',
+        robots: 'index, follow'
+      };
+
+      const injectedHtml = injectMetaPlaceholders(htmlData, meta);
 
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache, no-store');
@@ -197,17 +271,7 @@ app.get('/events/:id', async (req, res) => {
 });
 
 // ============================================================
-// 3. DĂNG KÝ ROUTE API CỦA BACKEND
-// ============================================================
-app.use('/api', routes);
-
-// ============================================================
-// 4. MIDDLEWARE XỬ LÝ LỖI (ERROR HANDLER)
-// ============================================================
-app.use(errorHandler);
-
-// ============================================================
-// 5. HÀM DYNAMIC HTML SỬ DỤNG CHO CÁC TRANG CÒN LẠI (SERVE & CATCH-ALL)
+// HÀM DYNAMIC HTML RENDER (SERVE DỘNG & XỬ LÝ SOFT 404 TRẢ VỀ 404 CHUẨN)
 // ============================================================
 const serveDynamicHtml = async (req, res) => {
   fs.readFile(indexPath, 'utf8', async (err, htmlData) => {
@@ -223,6 +287,7 @@ const serveDynamicHtml = async (req, res) => {
       image: 'https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public',
       type: 'website',
       robots: 'index, follow',
+      url: canonicalUrl,
       statusCode: 200
     };
 
@@ -236,7 +301,7 @@ const serveDynamicHtml = async (req, res) => {
           if (setting.seo.pages.home.social?.ogImage) meta.image = setting.seo.pages.home.social.ogImage;
         }
       }
-      // 2. Trang Sản phẩm
+      // 2. Trang Sản phẩm /product/:id
       else if (urlPath.startsWith('/product/')) {
         const productId = urlPath.replace('/product/', '').split('/')[0];
         if (mongoose.Types.ObjectId.isValid(productId)) {
@@ -246,13 +311,16 @@ const serveDynamicHtml = async (req, res) => {
             meta.description = product.description?.replace(/<[^>]*>/g, '').slice(0, 160) || meta.description;
             meta.image = product.imgSrc || product.images?.[0] || meta.image;
           } else {
-            meta.statusCode = 404; // Trả về 404 thật cho Soft 404
+            meta.statusCode = 404; // Trả về HTTP 404 thật cho Googlebot
             meta.robots = 'noindex, nofollow';
             meta.title = 'Sản phẩm không tồn tại (404) | iCards.com.vn';
           }
+        } else {
+          meta.statusCode = 404;
+          meta.robots = 'noindex, nofollow';
         }
       }
-      // 3. Trang Bài viết / Blog
+      // 3. Trang Bài viết /page/:slug
       else if (urlPath.startsWith('/page/')) {
         const slug = urlPath.replace('/page/', '').split('/')[0];
         const page = await Page.findOne({ slug, isPublished: true }).lean();
@@ -267,7 +335,7 @@ const serveDynamicHtml = async (req, res) => {
           meta.title = 'Bài viết không tồn tại (404) | iCards.com.vn';
         }
       }
-      // 4. Trang Mẫu thiệp
+      // 4. Trang Mẫu thiệp /invitation/:id
       else if (urlPath.startsWith('/invitation/')) {
         const templateId = urlPath.replace('/invitation/', '').split('/')[0];
         if (mongoose.Types.ObjectId.isValid(templateId)) {
@@ -281,6 +349,9 @@ const serveDynamicHtml = async (req, res) => {
             meta.robots = 'noindex, nofollow';
             meta.title = 'Mẫu thiệp không tồn tại (404) | iCards.com.vn';
           }
+        } else {
+          meta.statusCode = 404;
+          meta.robots = 'noindex, nofollow';
         }
       }
       // 5. Danh mục các trang tĩnh hợp lệ
@@ -304,22 +375,7 @@ const serveDynamicHtml = async (req, res) => {
       console.error('Dynamic HTML Error:', e);
     }
 
-    const injectedHtml = htmlData
-      .replaceAll('__META_TITLE__', meta.title)
-      .replaceAll('__OG_TITLE__', meta.title)
-      .replaceAll('__META_DESCRIPTION__', meta.description)
-      .replaceAll('__OG_DESCRIPTION__', meta.description)
-      .replaceAll('__META_KEYWORDS__', meta.keywords)
-      .replaceAll('__META_ROBOTS__', meta.robots)
-      .replaceAll('__CANONICAL_URL__', canonicalUrl)
-      .replaceAll('__OG_TYPE__', meta.type)
-      .replaceAll('__META_IMAGE__', meta.image)
-      .replaceAll('__OG_IMAGE__', meta.image)
-      .replaceAll('__META_URL__', meta.url)
-      .replaceAll('__OG_URL__', meta.url)
-      .replaceAll('__TWITTER_TITLE__', meta.title)
-      .replaceAll('__TWITTER_DESCRIPTION__', meta.description)
-      .replaceAll('__TWITTER_IMAGE__', meta.image);
+    const injectedHtml = injectMetaPlaceholders(htmlData, meta);
 
     res.status(meta.statusCode);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -329,7 +385,13 @@ const serveDynamicHtml = async (req, res) => {
 };
 
 // ============================================================
-// 6. CATCH-ALL ROUTE CHO FRONTEND REACT (ĐẶT Ở BƯỚC CUỐI CÙNG)
+// 3. MOUNT CÁC API VÀ ERROR HANDLER
+// ============================================================
+app.use('/api', routes);
+app.use(errorHandler);
+
+// ============================================================
+// 4. CATCH-ALL ROUTE CHO FRONTEND REACT (ĐẶT Ở BƯỚC CUỐI CÙNG)
 // ============================================================
 app.get('*', (req, res) => {
   serveDynamicHtml(req, res);
@@ -341,41 +403,41 @@ app.get('*', (req, res) => {
 cron.schedule('0 8 * * *', async () => {
   console.log('[CRON] Bắt đầu chạy tiến trình quét email nhắc nhở...');
   try {
-      const today = moment().startOf('day');
+    const today = moment().startOf('day');
 
-      const invitations = await Invitation.find({
-          'settings.eventDate': { $exists: true, $ne: null },
-          'settings.emailReminders': { $exists: true, $not: { $size: 0 } }
-      });
+    const invitations = await Invitation.find({
+      'settings.eventDate': { $exists: true, $ne: null },
+      'settings.emailReminders': { $exists: true, $not: { $size: 0 } }
+    });
 
-      let emailsSentCount = 0;
+    let emailsSentCount = 0;
 
-      for (const invitation of invitations) {
-          const eventDate = moment(invitation.settings.eventDate).startOf('day');
-          const daysUntilEvent = eventDate.diff(today, 'days');
+    for (const invitation of invitations) {
+      const eventDate = moment(invitation.settings.eventDate).startOf('day');
+      const daysUntilEvent = eventDate.diff(today, 'days');
 
-          const matchingReminder = invitation.settings.emailReminders.find(
-              reminder => reminder.daysBefore === daysUntilEvent && reminder.isEnabled
-          );
+      const matchingReminder = invitation.settings.emailReminders.find(
+        reminder => reminder.daysBefore === daysUntilEvent && reminder.isEnabled
+      );
 
-          if (matchingReminder) {
-              const guestsToRemind = invitation.guests.filter(
-                  guest => guest.status !== 'declined' && guest.email
-              );
+      if (matchingReminder) {
+        const guestsToRemind = invitation.guests.filter(
+          guest => guest.status !== 'declined' && guest.email
+        );
 
-              for (const guest of guestsToRemind) {
-                  try {
-                      await sendInvitationEmailToGuest(invitation._id, guest._id, invitation.user);
-                      emailsSentCount++;
-                  } catch (err) {
-                      console.error(`[CRON] Lỗi gửi email cho guest ${guest.email}:`, err.message);
-                  }
-              }
+        for (const guest of guestsToRemind) {
+          try {
+            await sendInvitationEmailToGuest(invitation._id, guest._id, invitation.user);
+            emailsSentCount++;
+          } catch (err) {
+            console.error(`[CRON] Lỗi gửi email cho guest ${guest.email}:`, err.message);
           }
+        }
       }
-      console.log(`[CRON] Hoàn thành. Đã gửi ${emailsSentCount} email nhắc nhở.`);
+    }
+    console.log(`[CRON] Hoàn thành. Đã gửi ${emailsSentCount} email nhắc nhở.`);
   } catch (error) {
-      console.error('[CRON] Lỗi tiến trình quét email:', error);
+    console.error('[CRON] Lỗi tiến trình quét email:', error);
   }
 });
 
