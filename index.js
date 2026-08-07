@@ -10,20 +10,32 @@ const routes = require('./src/routes');
 const passport = require('passport');
 const session = require('express-session');
 
-// --- THƯ VIỆN & MODEL DÙNG CHO SEO & SITEMAP ---
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const cron = require('node-cron');
 const moment = require('moment');
 
-const { renderFirstPageToBuffer } = require('./src/services/canvasRender.service');
-const { sendInvitationEmailToGuest } = require('./src/services/invitation.service');
+// --- THỬ LOAD CÁC MODEL & SERVICE VỚI CƠ CHẾ SAFE FALLBACK ---
 const Invitation = require('./src/models/invitation.model');
-const Product = require('./src/models/product.model');
-const Page = require('./src/models/page.model');
-const InvitationTemplate = require('./src/models/invitationTemplate.model');
-const Setting = require('./src/models/settings.model');
+
+let renderFirstPageToBuffer = null;
+try {
+  renderFirstPageToBuffer = require('./src/services/canvasRender.service').renderFirstPageToBuffer;
+} catch (e) {
+  console.warn('[SEO Warning] Không tìm thấy canvasRender.service, /og-image sẽ chuyển hướng về ảnh mặc định.');
+}
+
+let Product = null, Page = null, InvitationTemplate = null, Setting = null;
+try { Product = require('./src/models/product.model'); } catch (e) {}
+try { Page = require('./src/models/page.model'); } catch (e) {}
+try { InvitationTemplate = require('./src/models/invitationTemplate.model'); } catch (e) {}
+try { Setting = require('./src/models/settings.model'); } catch (e) {}
+
+let sendInvitationEmailToGuest = null;
+try {
+  sendInvitationEmailToGuest = require('./src/services/invitation.service').sendInvitationEmailToGuest;
+} catch (e) {}
 
 require('./src/config/passport');
 dotenv.config();
@@ -87,9 +99,9 @@ app.get('/sitemap.xml', async (req, res) => {
     const baseUrl = 'https://icards.com.vn';
 
     const [products, pages, templates] = await Promise.all([
-      Product.find({}).select('_id updatedAt').lean().catch(() => []),
-      Page.find({ isPublished: true, isBlog: true }).select('slug updatedAt').lean().catch(() => []),
-      InvitationTemplate.find({ isActive: true }).select('_id updatedAt').lean().catch(() => []),
+      Product ? Product.find({}).select('_id updatedAt').lean().catch(() => []) : [],
+      Page ? Page.find({ isPublished: true, isBlog: true }).select('slug updatedAt').lean().catch(() => []) : [],
+      InvitationTemplate ? InvitationTemplate.find({ isActive: true }).select('_id updatedAt').lean().catch(() => []) : [],
     ]);
 
     const staticRoutes = ['', '/shop', '/invitations', '/page', '/faq', '/about', '/professional'];
@@ -160,6 +172,10 @@ app.get('/og-image/:id', async (req, res) => {
       return fs.createReadStream(cacheFile).pipe(res);
     }
 
+    if (!renderFirstPageToBuffer) {
+      return res.redirect('https://imagedelivery.net/mYCNH6-2h27PJijuhYd-fw/32c7501a-ed3b-4466-876b-48bcfb13d600/public');
+    }
+
     const invitation = await Invitation.findById(id)
       .select('content imgSrc guests')
       .lean();
@@ -194,8 +210,6 @@ app.get('/og-image/:id', async (req, res) => {
 });
 
 app.get('/events/:id', async (req, res) => {
-  console.log('====== HIT EVENT ROUTE ======', req.params.id);
-  console.log('User Agent:', req.headers['user-agent']);
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -294,24 +308,26 @@ const serveDynamicHtml = async (req, res) => {
     try {
       // 1. Trang chủ
       if (urlPath === '/' || urlPath === '') {
-        const setting = await Setting.findOne({ singletonKey: 'main_settings' }).lean();
-        if (setting?.seo?.pages?.home) {
-          meta.title = setting.seo.pages.home.title || meta.title;
-          meta.description = setting.seo.pages.home.description || meta.description;
-          if (setting.seo.pages.home.social?.ogImage) meta.image = setting.seo.pages.home.social.ogImage;
+        if (Setting) {
+          const setting = await Setting.findOne({ singletonKey: 'main_settings' }).lean();
+          if (setting?.seo?.pages?.home) {
+            meta.title = setting.seo.pages.home.title || meta.title;
+            meta.description = setting.seo.pages.home.description || meta.description;
+            if (setting.seo.pages.home.social?.ogImage) meta.image = setting.seo.pages.home.social.ogImage;
+          }
         }
       }
       // 2. Trang Sản phẩm /product/:id
       else if (urlPath.startsWith('/product/')) {
         const productId = urlPath.replace('/product/', '').split('/')[0];
-        if (mongoose.Types.ObjectId.isValid(productId)) {
+        if (mongoose.Types.ObjectId.isValid(productId) && Product) {
           const product = await Product.findById(productId).lean();
           if (product) {
             meta.title = `${product.title} | iCards.com.vn`;
             meta.description = product.description?.replace(/<[^>]*>/g, '').slice(0, 160) || meta.description;
             meta.image = product.imgSrc || product.images?.[0] || meta.image;
           } else {
-            meta.statusCode = 404; // Trả về HTTP 404 thật cho Googlebot
+            meta.statusCode = 404; // Trả về 404 thật
             meta.robots = 'noindex, nofollow';
             meta.title = 'Sản phẩm không tồn tại (404) | iCards.com.vn';
           }
@@ -323,22 +339,24 @@ const serveDynamicHtml = async (req, res) => {
       // 3. Trang Bài viết /page/:slug
       else if (urlPath.startsWith('/page/')) {
         const slug = urlPath.replace('/page/', '').split('/')[0];
-        const page = await Page.findOne({ slug, isPublished: true }).lean();
-        if (page) {
-          meta.title = `${page.seo?.metaTitle || page.title} | iCards.com.vn`;
-          meta.description = page.seo?.metaDescription || page.summary || meta.description;
-          meta.image = page.thumbnail || meta.image;
-          meta.type = 'article';
-        } else {
-          meta.statusCode = 404;
-          meta.robots = 'noindex, nofollow';
-          meta.title = 'Bài viết không tồn tại (404) | iCards.com.vn';
+        if (Page) {
+          const page = await Page.findOne({ slug, isPublished: true }).lean();
+          if (page) {
+            meta.title = `${page.seo?.metaTitle || page.title} | iCards.com.vn`;
+            meta.description = page.seo?.metaDescription || page.summary || meta.description;
+            meta.image = page.thumbnail || meta.image;
+            meta.type = 'article';
+          } else {
+            meta.statusCode = 404;
+            meta.robots = 'noindex, nofollow';
+            meta.title = 'Bài viết không tồn tại (404) | iCards.com.vn';
+          }
         }
       }
       // 4. Trang Mẫu thiệp /invitation/:id
       else if (urlPath.startsWith('/invitation/')) {
         const templateId = urlPath.replace('/invitation/', '').split('/')[0];
-        if (mongoose.Types.ObjectId.isValid(templateId)) {
+        if (mongoose.Types.ObjectId.isValid(templateId) && InvitationTemplate) {
           const template = await InvitationTemplate.findById(templateId).lean();
           if (template) {
             meta.title = `${template.title} | iCards.com.vn`;
@@ -427,8 +445,10 @@ cron.schedule('0 8 * * *', async () => {
 
         for (const guest of guestsToRemind) {
           try {
-            await sendInvitationEmailToGuest(invitation._id, guest._id, invitation.user);
-            emailsSentCount++;
+            if (sendInvitationEmailToGuest) {
+              await sendInvitationEmailToGuest(invitation._id, guest._id, invitation.user);
+              emailsSentCount++;
+            }
           } catch (err) {
             console.error(`[CRON] Lỗi gửi email cho guest ${guest.email}:`, err.message);
           }
