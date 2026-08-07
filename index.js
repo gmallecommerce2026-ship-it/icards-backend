@@ -64,8 +64,8 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 
 // Phục vụ file tĩnh công khai & file Build React
-app.use(express.static('public'));
-app.use(express.static('/home/icards/icards/build'));
+app.use(express.static('public', { index: false }));
+app.use(express.static('/home/icards/icards/build', { index: false }));
 
 if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
 const escapeXml = (unsafe) => {
