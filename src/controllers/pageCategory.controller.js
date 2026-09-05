@@ -1,17 +1,16 @@
-// BE/controllers/pageCategory.controller.js
 const pageCategoryService = require('../services/pageCategory.service');
 
-/**
- * Controller để xử lý yêu cầu công khai, lấy tất cả danh mục trang.
- */
+// PUBLIC (Navbar/Blog): trả về CÂY có children thật
 const getPublicPageCategories = async (req, res, next) => {
     try {
-        const categories = await pageCategoryService.getAllCategories();
+        const categories = await pageCategoryService.getCategoryTree();
         res.status(200).json({ status: 'success', data: categories });
     } catch (error) {
         next(error);
     }
 };
+
+// ADMIN: giữ nguyên danh sách phẳng để dễ quản lý / kéo-thả order
 const getAllCategoriesAdmin = async (req, res, next) => {
     try {
         const categories = await pageCategoryService.getAllCategories();
@@ -23,6 +22,7 @@ const getAllCategoriesAdmin = async (req, res, next) => {
 
 const createCategory = async (req, res, next) => {
     try {
+        // req.body cần cho phép truyền thêm `parent` (id danh mục cha, hoặc null)
         const newCategory = await pageCategoryService.createCategory(req.body);
         res.status(201).json({ status: 'success', data: newCategory });
     } catch (error) {
@@ -56,6 +56,7 @@ const updateCategoryOrder = async (req, res, next) => {
         next(error);
     }
 };
+
 module.exports = {
     getPublicPageCategories,
     getAllCategoriesAdmin,
